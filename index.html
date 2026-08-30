@@ -17,18 +17,25 @@
     .input-group input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
     .input-group input:disabled { background: #f7fafc; cursor: not-allowed; }
     button { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
-    button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); }
+    button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); }
     button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     .message { margin-top: 16px; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 500; display: none; }
-    .message.success { display: block; background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
-    .message.error { display: block; background: #fed7d7; color: #9b2c2c; border: 1px solid #feb2b2; }
-    .message.loading { display: block; background: #bee3f8; color: #2a69ac; border: 1px solid #90cdf4; }
+    .message.show { display: block; }
+    .message.success { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+    .message.error { background: #fed7d7; color: #9b2c2c; border: 1px solid #feb2b2; }
+    .message.loading { background: #bee3f8; color: #2a69ac; border: 1px solid #90cdf4; }
+    .message.info { background: #fefcbf; color: #744210; border: 1px solid #f6e05e; }
     .spinner { display: inline-block; animation: spin 0.8s linear infinite; margin-right: 8px; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    .teacher-info { background: #f7fafc; border-radius: 12px; padding: 12px; margin-bottom: 16px; display: none; }
+    .teacher-info { background: #f7fafc; border-radius: 12px; padding: 12px; margin-bottom: 16px; display: none; text-align: left; }
     .teacher-info.show { display: block; }
-    .teacher-info .name { font-weight: 600; color: #1a2332; }
-    .teacher-info .status { font-size: 13px; color: #718096; }
+    .teacher-info .label { font-size: 12px; color: #718096; }
+    .teacher-info .name { font-weight: 600; color: #1a2332; font-size: 16px; }
+    .teacher-info .status { font-size: 13px; color: #718096; margin-top: 4px; }
+    .debug { background: #1a2332; color: #a0aec0; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; margin-top: 12px; display: none; text-align: left; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    .debug.show { display: block; }
+    .toggle-debug { background: #edf2f7; color: #2d3748; border: none; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; margin-top: 8px; }
+    .toggle-debug:hover { background: #e2e8f0; }
   </style>
 </head>
 <body>
@@ -45,16 +52,20 @@
     <button id="markBtn">✅ Mark Present</button>
     
     <div id="teacherInfo" class="teacher-info">
+      <div class="label">👤 Teacher Found</div>
       <div class="name" id="teacherName">Teacher Name</div>
       <div class="status" id="teacherStatus">Status: Absent</div>
     </div>
     
     <div id="message" class="message"></div>
+    
+    <button class="toggle-debug" id="debugToggle">🔍 Show Debug Info</button>
+    <div id="debugInfo" class="debug"></div>
   </div>
 
   <script>
     // ============================================================
-    //  SUPABASE CONFIG - USE YOUR CREDENTIALS
+    //  SUPABASE CONFIG
     // ============================================================
     const SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbWdtbnpxZ3lzc2F0YWp0cHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTQ5OTcsImV4cCI6MjEwMzY5MDk5N30.Q2qg_3whnSo1sPxx7uQM4oFoEURdQCSWkR96QqlToDE';
@@ -68,12 +79,15 @@
     const teacherInfo = document.getElementById('teacherInfo');
     const teacherName = document.getElementById('teacherName');
     const teacherStatus = document.getElementById('teacherStatus');
+    const debugInfo = document.getElementById('debugInfo');
+    const debugToggle = document.getElementById('debugToggle');
+    let debugMode = false;
     
     // ============================================================
     //  HELPERS
     // ============================================================
     function showMessage(text, type) {
-      message.className = 'message ' + type;
+      message.className = 'message show ' + type;
       message.textContent = text;
     }
     
@@ -83,12 +97,23 @@
     
     function showTeacherInfo(name, status) {
       teacherInfo.classList.add('show');
-      teacherName.textContent = '👤 ' + name;
+      teacherName.textContent = name;
       teacherStatus.textContent = 'Status: ' + (status === 'present' ? '✅ Present' : '❌ Absent');
     }
     
     function hideTeacherInfo() {
       teacherInfo.classList.remove('show');
+    }
+    
+    function addDebug(log) {
+      if (debugMode) {
+        debugInfo.textContent += log + '\n';
+        debugInfo.classList.add('show');
+      }
+    }
+    
+    function clearDebug() {
+      debugInfo.textContent = '';
     }
     
     // ============================================================
@@ -105,53 +130,99 @@
       const mergedOptions = Object.assign({}, options);
       mergedOptions.headers = Object.assign({}, defaultHeaders, options ? options.headers : {});
       
+      addDebug('📡 Fetching: ' + url);
+      addDebug('📡 Method: ' + (mergedOptions.method || 'GET'));
+      
       try {
         const response = await fetch(url, mergedOptions);
+        addDebug('📡 Status: ' + response.status);
+        
         if (!response.ok) {
           const errorText = await response.text();
+          addDebug('❌ Error Response: ' + errorText);
           throw new Error('Error ' + response.status + ': ' + errorText);
         }
         const data = await response.text();
+        addDebug('📡 Response: ' + data.substring(0, 200) + (data.length > 200 ? '...' : ''));
         return data ? JSON.parse(data) : null;
       } catch (e) {
+        addDebug('❌ Exception: ' + e.message);
         console.error('API error:', e);
         throw e;
       }
     }
     
     // ============================================================
-    //  FIND TEACHER BY EMAIL
+    //  FIND TEACHER BY EMAIL - FIXED VERSION
     // ============================================================
     async function findTeacherByEmail(email) {
+      addDebug('🔍 Searching for: "' + email + '"');
+      
       try {
-        // Search with case-insensitive match using ILIKE
-        const response = await supabaseFetch(
-          'teachers?email=ilike.' + encodeURIComponent(email.trim()),
+        // Method 1: Exact match (case insensitive)
+        addDebug('📌 Method 1: Exact match');
+        const response1 = await supabaseFetch(
+          'teachers?select=*&email=ilike.' + encodeURIComponent(email.trim()),
           { method: 'GET' }
         );
         
-        if (!response || response.length === 0) {
-          // Try searching by name if email doesn't match
-          const nameResponse = await supabaseFetch(
-            'teachers?name=ilike.' + encodeURIComponent(email.trim()),
-            { method: 'GET' }
-          );
-          return nameResponse && nameResponse.length > 0 ? nameResponse[0] : null;
+        if (response1 && response1.length > 0) {
+          addDebug('✅ Found by exact email match');
+          return response1[0];
         }
         
-        return response[0];
+        // Method 2: Search by name
+        addDebug('📌 Method 2: Search by name');
+        const response2 = await supabaseFetch(
+          'teachers?select=*&name=ilike.' + encodeURIComponent(email.trim()),
+          { method: 'GET' }
+        );
+        
+        if (response2 && response2.length > 0) {
+          addDebug('✅ Found by name match');
+          return response2[0];
+        }
+        
+        // Method 3: Get all teachers and filter manually (fallback)
+        addDebug('📌 Method 3: Manual filter on all teachers');
+        const allTeachers = await supabaseFetch('teachers?select=*', { method: 'GET' });
+        
+        if (allTeachers && allTeachers.length > 0) {
+          addDebug('📊 Found ' + allTeachers.length + ' total teachers');
+          
+          // Try case-insensitive match
+          const searchEmail = email.trim().toLowerCase();
+          const found = allTeachers.find(function(t) {
+            const teacherEmail = (t.email || '').toLowerCase();
+            const teacherName = (t.name || '').toLowerCase();
+            return teacherEmail === searchEmail || 
+                   teacherName === searchEmail ||
+                   teacherEmail.includes(searchEmail) ||
+                   teacherName.includes(searchEmail);
+          });
+          
+          if (found) {
+            addDebug('✅ Found by manual filter');
+            return found;
+          }
+        }
+        
+        addDebug('❌ No teacher found');
+        return null;
+        
       } catch (e) {
-        console.error('Find teacher error:', e);
+        addDebug('❌ Search error: ' + e.message);
         throw e;
       }
     }
     
     // ============================================================
-    //  MARK ATTENDANCE
+    //  MARK ATTENDANCE - FIXED VERSION
     // ============================================================
     async function markAttendance(email) {
       hideMessage();
       hideTeacherInfo();
+      clearDebug();
       
       if (!email || email.trim() === '') {
         showMessage('Please enter your email address', 'error');
@@ -170,14 +241,25 @@
       // Disable button and show loading
       markBtn.disabled = true;
       markBtn.innerHTML = '<span class="spinner">⏳</span> Checking...';
-      showMessage('Looking up your account...', 'loading');
+      showMessage('🔍 Looking up your account...', 'loading');
       
       try {
         // Find teacher by email
         const teacher = await findTeacherByEmail(email.trim());
         
+        addDebug('📊 Teacher object: ' + JSON.stringify(teacher, null, 2));
+        
         if (!teacher) {
           showMessage('❌ Teacher not found. Please contact your administrator to be added to the system.', 'error');
+          markBtn.disabled = false;
+          markBtn.innerHTML = '✅ Mark Present';
+          return;
+        }
+        
+        // Check if teacher has an ID
+        if (!teacher.id) {
+          addDebug('❌ Teacher has no ID!');
+          showMessage('❌ Error: Teacher record is invalid (missing ID). Please contact administrator.', 'error');
           markBtn.disabled = false;
           markBtn.innerHTML = '✅ Mark Present';
           return;
@@ -196,6 +278,7 @@
         
         // Update status to present
         showMessage('⏳ Marking you as present...', 'loading');
+        addDebug('📝 Updating teacher ID: ' + teacher.id + ' to present');
         
         const updateResponse = await supabaseFetch(
           'teachers?id=eq.' + teacher.id,
@@ -206,12 +289,15 @@
           }
         );
         
+        addDebug('📊 Update response: ' + JSON.stringify(updateResponse, null, 2));
+        
         if (!updateResponse || updateResponse.length === 0) {
-          throw new Error('Failed to update status');
+          throw new Error('Failed to update status - no response from server');
         }
         
         // Log to meeting history
         try {
+          addDebug('📝 Logging to history...');
           await supabaseFetch('meeting_history', {
             method: 'POST',
             headers: { 'Prefer': 'return=representation' },
@@ -222,8 +308,9 @@
               meeting_date: new Date().toISOString()
             }])
           });
+          addDebug('✅ History logged');
         } catch (historyError) {
-          console.warn('History logging failed:', historyError);
+          addDebug('⚠️ History error: ' + historyError.message);
           // Continue even if history fails
         }
         
@@ -244,6 +331,7 @@
         
       } catch (error) {
         console.error('Attendance error:', error);
+        addDebug('❌ Error: ' + error.message);
         showMessage('❌ Error: ' + error.message, 'error');
         markBtn.disabled = false;
         markBtn.innerHTML = '✅ Mark Present';
@@ -268,17 +356,32 @@
       }
     });
     
+    // Debug toggle
+    debugToggle.addEventListener('click', function() {
+      debugMode = !debugMode;
+      if (debugMode) {
+        debugInfo.classList.add('show');
+        this.textContent = '🔒 Hide Debug Info';
+        addDebug('🐛 Debug mode enabled');
+        addDebug('📧 Email: ' + emailInput.value);
+        addDebug('🔗 Supabase URL: ' + SUPABASE_URL);
+      } else {
+        debugInfo.classList.remove('show');
+        this.textContent = '🔍 Show Debug Info';
+      }
+    });
+    
     // Auto-focus on page load
     emailInput.focus();
     
     // ============================================================
-    //  TEST MODE - Uncomment below to test with sample data
+    //  PRE-FILL FOR TESTING - Uncomment to test
     // ============================================================
-    // For testing purposes, you can pre-fill with a known email
     // emailInput.value = 'sarah@edu.org';
     
     console.log('✅ QR Attendance System Ready');
     console.log('📧 Enter your email to mark attendance');
+    console.log('🔍 Supabase URL:', SUPABASE_URL);
   </script>
 </body>
 </html>
