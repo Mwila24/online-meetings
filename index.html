@@ -236,6 +236,7 @@
         .action-btns {
             display: flex;
             gap: 6px;
+            justify-content: center;
         }
 
         .action-btns button {
@@ -664,7 +665,6 @@
                 if (typeof window.supabase !== 'undefined') {
                     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-                    // Check if credentials are valid
                     if (!SUPABASE_URL.includes('your-project') &&
                         !SUPABASE_ANON_KEY.includes('your-anon-key')) {
                         isLocalMode = false;
@@ -718,7 +718,7 @@
                         <td>${teacher.email || '—'}</td>
                         <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                         <td>
-                            <div class="action-btns" style="justify-content: center;">
+                            <div class="action-btns">
                                 <button class="toggle-btn" data-index="${index}" title="Toggle attendance">
                                     <i class="fas fa-exchange-alt"></i>
                                 </button>
@@ -734,17 +734,19 @@
             tbody.innerHTML = html;
             updateStatusBar();
 
-            // Attach event listeners
+            // Attach event listeners to toggle and delete buttons
             document.querySelectorAll('.toggle-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const index = parseInt(this.dataset.index);
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const index = parseInt(this.getAttribute('data-index'));
                     toggleTeacher(index);
                 });
             });
 
             document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const index = parseInt(this.dataset.index);
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const index = parseInt(this.getAttribute('data-index'));
                     deleteTeacher(index);
                 });
             });
@@ -757,7 +759,6 @@
         // LOAD TEACHERS
         async function loadTeachers() {
             if (isLocalMode) {
-                // Load from local storage
                 if (!loadFromLocal()) {
                     seedSampleData();
                 }
@@ -766,7 +767,6 @@
                 return;
             }
 
-            // Load from Supabase
             try {
                 const { data, error } = await supabase
                     .from('teachers')
@@ -778,16 +778,13 @@
                 if (data && data.length > 0) {
                     teachers = data;
                 } else {
-                    // No data in Supabase, seed with sample
                     seedSampleData();
-                    // Try to upload to Supabase
                     await syncToSupabase();
                 }
                 renderTable();
                 showToast('✅ Loaded from Supabase', 'success');
             } catch (err) {
                 console.error('Load error:', err);
-                // Fallback to local
                 isLocalMode = true;
                 modeDisplay.textContent = 'Local';
                 modeDisplay.style.color = '#ed8936';
@@ -799,7 +796,7 @@
             }
         }
 
-        // ADD TEACHER
+        // ADD TEACHER - FIXED VERSION
         async function addTeacher(name, email) {
             // Validation
             const trimmedName = name.trim();
@@ -837,11 +834,11 @@
             isProcessing = true;
             addBtn.disabled = true;
             addBtnText.textContent = 'Adding...';
-            addBtn.querySelector('i').className = 'fas fa-spinner spinner';
+            const icon = addBtn.querySelector('i');
+            icon.className = 'fas fa-spinner spinner';
 
             try {
                 if (isLocalMode) {
-                    // Add to local
                     newTeacher.id = generateId();
                     teachers.push(newTeacher);
                     saveToLocal();
@@ -851,7 +848,6 @@
                     return true;
                 }
 
-                // Add to Supabase
                 const { data, error } = await supabase
                     .from('teachers')
                     .insert([newTeacher])
@@ -870,7 +866,6 @@
                 }
             } catch (err) {
                 console.error('Add error:', err);
-                // Fallback to local
                 if (!isLocalMode) {
                     isLocalMode = true;
                     modeDisplay.textContent = 'Local';
@@ -890,14 +885,22 @@
                 isProcessing = false;
                 addBtn.disabled = false;
                 addBtnText.textContent = 'Add Teacher';
-                addBtn.querySelector('i').className = 'fas fa-plus-circle';
+                icon.className = 'fas fa-plus-circle';
             }
         }
 
         // TOGGLE TEACHER
         async function toggleTeacher(index) {
+            if (index === undefined || index === null) {
+                console.error('Invalid index for toggle');
+                return;
+            }
+
             const teacher = teachers[index];
-            if (!teacher) return;
+            if (!teacher) {
+                console.error('Teacher not found at index:', index);
+                return;
+            }
 
             const newStatus = teacher.status === 'present' ? 'absent' : 'present';
 
@@ -922,7 +925,6 @@
                 showToast(`🔄 "${teacher.name}" is now ${newStatus}`, 'success');
             } catch (err) {
                 console.error('Toggle error:', err);
-                // Fallback to local
                 teacher.status = newStatus;
                 saveToLocal();
                 renderTable();
@@ -935,8 +937,16 @@
 
         // DELETE TEACHER
         async function deleteTeacher(index) {
+            if (index === undefined || index === null) {
+                console.error('Invalid index for delete');
+                return;
+            }
+
             const teacher = teachers[index];
-            if (!teacher) return;
+            if (!teacher) {
+                console.error('Teacher not found at index:', index);
+                return;
+            }
 
             if (!confirm(`Remove "${teacher.name}" from the list?`)) return;
 
@@ -1046,13 +1056,17 @@
         }
 
         // ============================================================
-        //  EVENT LISTENERS
+        //  EVENT LISTENERS - FIXED
         // ============================================================
 
-        // Add button
-        addBtn.addEventListener('click', function() {
-            addTeacher(nameInput.value, emailInput.value);
-        });
+        // Add button - using onclick directly for reliability
+        addBtn.onclick = function(e) {
+            e.preventDefault();
+            console.log('Add button clicked!');
+            const name = nameInput.value;
+            const email = emailInput.value;
+            addTeacher(name, email);
+        };
 
         // Enter key support
         nameInput.addEventListener('keydown', function(e) {
@@ -1072,17 +1086,23 @@
         });
 
         // Mark all present
-        markAllBtn.addEventListener('click', markAllPresent);
+        markAllBtn.onclick = function(e) {
+            e.preventDefault();
+            markAllPresent();
+        };
 
         // Refresh
-        refreshBtn.addEventListener('click', function() {
+        refreshBtn.onclick = function(e) {
+            e.preventDefault();
             loadTeachers();
-        });
+        };
 
         // ============================================================
         //  INIT
         // ============================================================
         function init() {
+            console.log('🚀 Initializing Teacher Tracker...');
+            
             // Initialize Supabase
             initSupabase();
 
@@ -1092,6 +1112,7 @@
             console.log('📚 Teacher Tracker initialized');
             console.log('Mode:', isLocalMode ? 'Local Storage' : 'Supabase');
             console.log('Teachers:', teachers.length);
+            console.log('Add button element:', addBtn);
 
             // Auto-refresh every 30 seconds if using Supabase
             setInterval(() => {
@@ -1102,7 +1123,7 @@
         }
 
         // Start the app
-        init();
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
