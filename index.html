@@ -8,7 +8,10 @@
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   body { background: #f5f7fa; min-height: 100vh; padding: 20px; display: flex; justify-content: center; }
   .container { max-width: 700px; width: 100%; background: white; border-radius: 16px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
-  h1 { font-size: 22px; color: #1a2332; margin-bottom: 16px; }
+  h1 { font-size: 22px; color: #1a2332; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #718096; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #38a169; flex-shrink: 0; }
+  .dot.offline { background: #e53e3e; }
   .status-bar { display: flex; gap: 20px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; color: #2d3748; }
   .status-bar b { color: #1a2332; }
   .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f4f8; }
@@ -22,6 +25,7 @@
   .badge.absent { background: #fed7d7; color: #9b2c2c; }
   .actions { display: flex; gap: 6px; }
   button { cursor: pointer; border: none; border-radius: 8px; font-size: 13px; padding: 6px 10px; font-weight: 600; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-toggle { background: #edf2f7; color: #2d3748; }
   .btn-toggle:hover { background: #e2e8f0; }
   .btn-delete { background: #fed7d7; color: #9b2c2c; }
@@ -32,12 +36,12 @@
   input:focus { outline: none; border-color: #4f8cff; }
   .btn-add { background: #4f8cff; color: white; padding: 9px 18px; border-radius: 8px; white-space: nowrap; }
   .btn-add:hover { background: #3a7ae8; }
-  .btn-add:disabled { opacity: 0.6; cursor: not-allowed; }
   .error-text { color: #c53030; font-size: 13px; margin-top: 6px; display: none; }
   .footer-row { margin-top: 16px; }
   .btn-markall { background: #38a169; color: white; padding: 8px 16px; border-radius: 8px; }
   .btn-markall:hover { background: #2f855a; }
-  .toast { position: fixed; bottom: 24px; right: 24px; background: #38a169; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); display: none; }
+  .btn-refresh { background: #edf2f7; color: #2d3748; padding: 8px 16px; border-radius: 8px; margin-left: 8px; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #38a169; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); display: none; max-width: 320px; }
   .toast.show { display: block; }
   .toast.error { background: #e53e3e; }
 </style>
@@ -45,6 +49,7 @@
 <body>
 <div class="container">
   <h1>Teacher meeting tracker</h1>
+  <div class="subtitle"><span class="dot" id="connDot"></span><span id="connText">Connecting to Supabase…</span></div>
   <div class="status-bar">
     <div>Total: <b id="totalCount">0</b></div>
     <div>Present: <b id="presentCount">0</b></div>
@@ -58,21 +63,33 @@
   <div class="error-text" id="errorText"></div>
   <div class="footer-row">
     <button class="btn-markall" id="markAllBtn" type="button">Mark all present</button>
+    <button class="btn-refresh" id="refreshBtn" type="button">Refresh</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
+var SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbWdtbnpxZ3lzc2F0YWp0cHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTQ5OTcsImV4cCI6MjEwMzY5MDk5N30.Q2qg_3whnSo1sPxx7uQM4oFoEURdQCSWkR96QqlToDE';
+var REST_URL = SUPABASE_URL + '/rest/v1/teachers';
+var HEADERS = {
+  'apikey': SUPABASE_ANON_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+  'Content-Type': 'application/json'
+};
+
 var teachers = [];
-var STORAGE_KEY = 'teacherTrackerData';
 
 var listEl = document.getElementById('list');
 var totalEl = document.getElementById('totalCount');
 var presentEl = document.getElementById('presentCount');
+var connDot = document.getElementById('connDot');
+var connText = document.getElementById('connText');
 var nameInput = document.getElementById('nameInput');
 var emailInput = document.getElementById('emailInput');
 var addBtn = document.getElementById('addBtn');
 var markAllBtn = document.getElementById('markAllBtn');
+var refreshBtn = document.getElementById('refreshBtn');
 var errorText = document.getElementById('errorText');
 var toast = document.getElementById('toast');
 var toastTimer = null;
@@ -81,7 +98,7 @@ function showToast(msg, isError) {
   toast.textContent = msg;
   toast.className = 'toast show' + (isError ? ' error' : '');
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(function () { toast.className = 'toast'; }, 2500);
+  toastTimer = setTimeout(function () { toast.className = 'toast'; }, 3000);
 }
 
 function showError(msg) {
@@ -93,6 +110,11 @@ function clearError() {
   errorText.style.display = 'none';
 }
 
+function setConnected(ok, label) {
+  connDot.className = ok ? 'dot' : 'dot offline';
+  connText.textContent = label;
+}
+
 function initials(name) {
   return name ? name.charAt(0).toUpperCase() : '?';
 }
@@ -102,31 +124,56 @@ function validEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function save() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(teachers));
-  } catch (e) {
-    showToast('Could not save to this browser', true);
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function apiRequest(path, options) {
+  var resp = await fetch(REST_URL + path, options);
+  if (!resp.ok) {
+    var text = await resp.text();
+    throw new Error('Supabase error ' + resp.status + ': ' + text);
   }
+  var text2 = await resp.text();
+  return text2 ? JSON.parse(text2) : null;
 }
 
-function load() {
-  try {
-    var data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      teachers = JSON.parse(data);
-      return true;
-    }
-  } catch (e) {}
-  return false;
+async function fetchTeachers() {
+  return apiRequest('?select=*&order=name.asc', { headers: HEADERS });
 }
 
-function seed() {
-  teachers = [
-    { id: 1, name: 'Sarah Chen', email: 'sarah@edu.org', status: 'present' },
-    { id: 2, name: 'James Miller', email: 'james@edu.org', status: 'absent' },
-    { id: 3, name: 'Elena Rodriguez', email: '', status: 'present' }
-  ];
+async function insertTeacher(name, email) {
+  return apiRequest('', {
+    method: 'POST',
+    headers: Object.assign({ 'Prefer': 'return=representation' }, HEADERS),
+    body: JSON.stringify([{ name: name, email: email }])
+  });
+}
+
+async function updateTeacherStatus(id, status) {
+  return apiRequest('?id=eq.' + id, {
+    method: 'PATCH',
+    headers: Object.assign({ 'Prefer': 'return=representation' }, HEADERS),
+    body: JSON.stringify({ status: status })
+  });
+}
+
+async function updateManyStatus(ids, status) {
+  var idList = ids.join(',');
+  return apiRequest('?id=in.(' + idList + ')', {
+    method: 'PATCH',
+    headers: HEADERS,
+    body: JSON.stringify({ status: status })
+  });
+}
+
+async function deleteTeacherRow(id) {
+  return apiRequest('?id=eq.' + id, {
+    method: 'DELETE',
+    headers: HEADERS
+  });
 }
 
 function render() {
@@ -163,29 +210,49 @@ function render() {
   });
 }
 
-function escapeHtml(str) {
-  var div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+async function loadTeachers(showLoadedToast) {
+  try {
+    var data = await fetchTeachers();
+    teachers = data || [];
+    setConnected(true, 'Connected to Supabase');
+    render();
+    if (showLoadedToast) showToast('Loaded ' + teachers.length + ' teachers');
+  } catch (e) {
+    setConnected(false, 'Could not reach Supabase');
+    showToast('Load failed: ' + e.message, true);
+  }
 }
 
-function toggleTeacher(i) {
-  teachers[i].status = teachers[i].status === 'present' ? 'absent' : 'present';
+async function toggleTeacher(i) {
+  var t = teachers[i];
+  var newStatus = t.status === 'present' ? 'absent' : 'present';
+  var prevStatus = t.status;
+  t.status = newStatus;
   render();
-  save();
-  showToast(teachers[i].name + ' is now ' + teachers[i].status);
+  try {
+    await updateTeacherStatus(t.id, newStatus);
+    showToast(t.name + ' is now ' + newStatus);
+  } catch (e) {
+    t.status = prevStatus;
+    render();
+    showToast('Update failed: ' + e.message, true);
+  }
 }
 
-function deleteTeacher(i) {
-  var name = teachers[i].name;
-  if (!confirm('Remove ' + name + ' from the list?')) return;
-  teachers.splice(i, 1);
-  render();
-  save();
-  showToast(name + ' removed');
+async function deleteTeacher(i) {
+  var t = teachers[i];
+  if (!confirm('Remove ' + t.name + ' from the list?')) return;
+  try {
+    await deleteTeacherRow(t.id);
+    teachers.splice(i, 1);
+    render();
+    showToast(t.name + ' removed');
+  } catch (e) {
+    showToast('Delete failed: ' + e.message, true);
+  }
 }
 
-function addTeacher() {
+async function addTeacher() {
   clearError();
   var name = nameInput.value.trim();
   var email = emailInput.value.trim();
@@ -208,28 +275,46 @@ function addTeacher() {
     return;
   }
 
-  teachers.push({ id: Date.now(), name: name, email: email || null, status: 'absent' });
-  nameInput.value = '';
-  emailInput.value = '';
-  nameInput.focus();
-  render();
-  save();
-  showToast(name + ' added');
+  addBtn.disabled = true;
+  try {
+    var inserted = await insertTeacher(name, email || null);
+    if (inserted && inserted.length) {
+      teachers.push(inserted[0]);
+    }
+    nameInput.value = '';
+    emailInput.value = '';
+    nameInput.focus();
+    render();
+    showToast(name + ' added');
+  } catch (e) {
+    showToast('Add failed: ' + e.message, true);
+  } finally {
+    addBtn.disabled = false;
+  }
 }
 
-function markAllPresent() {
+async function markAllPresent() {
   if (teachers.length === 0) {
     showToast('No teachers to mark', true);
     return;
   }
+  var ids = teachers.map(function (t) { return t.id; });
+  var prevStatuses = teachers.map(function (t) { return t.status; });
   teachers.forEach(function (t) { t.status = 'present'; });
   render();
-  save();
-  showToast('All teachers marked present');
+  try {
+    await updateManyStatus(ids, 'present');
+    showToast('All teachers marked present');
+  } catch (e) {
+    teachers.forEach(function (t, idx) { t.status = prevStatuses[idx]; });
+    render();
+    showToast('Mark all failed: ' + e.message, true);
+  }
 }
 
 addBtn.addEventListener('click', addTeacher);
 markAllBtn.addEventListener('click', markAllPresent);
+refreshBtn.addEventListener('click', function () { loadTeachers(true); });
 nameInput.addEventListener('keydown', function (e) {
   if (e.key === 'Enter') { e.preventDefault(); addTeacher(); }
 });
@@ -238,11 +323,7 @@ emailInput.addEventListener('keydown', function (e) {
 });
 
 function init() {
-  if (!load()) {
-    seed();
-    save();
-  }
-  render();
+  loadTeachers(false);
 }
 
 if (document.readyState === 'loading') {
