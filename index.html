@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Meeting Tracker · Supabase</title>
+    <!-- Supabase JS client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Font Awesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background: #f4f7fc;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .app-card {
+            max-width: 1100px;
+            width: 100%;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 20px 40px -12px rgba(0,20,40,0.25);
+            padding: 30px 28px 40px;
+            transition: all 0.2s ease;
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #0b2b4a;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        h1 i {
+            color: #3b82f6;
+            font-size: 30px;
+        }
+        .subtitle {
+            color: #4a5b6e;
+            font-size: 15px;
+            margin-bottom: 28px;
+            border-left: 4px solid #3b82f6;
+            padding-left: 16px;
+            background: #f0f5ff;
+            border-radius: 0 12px 12px 0;
+            line-height: 1.5;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 20px;
+        }
+        .subtitle i {
+            color: #3b82f6;
+            margin-right: 4px;
+        }
+        .badge-github {
+            background: #1e293b;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.3px;
+        }
+        .badge-github i {
+            color: #f0f6ff;
+        }
+        .status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafd;
+            padding: 14px 20px;
+            border-radius: 60px;
+            margin-bottom: 30px;
+            border: 1px solid #e2eaf2;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #1e3a5f;
+        }
+        .status-item i {
+            font-size: 16px;
+            color: #3b82f6;
+        }
+        .status-item .count {
+            font-weight: 700;
+            background: #dbeafe;
+            padding: 0 12px;
+            border-radius: 40px;
+            color: #1e4a7a;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 500;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.15s;
+            box-shadow: 0 4px 10px rgba(59,130,246,0.25);
+            border: 1px solid transparent;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: scale(1.01);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #cbd9e8;
+            color: #1e3a5f;
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-weight: 500;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .btn-outline:hover {
+            background: #eef4fa;
+            border-color: #94b3d3;
+        }
+        .btn-danger-outline {
+            background: transparent;
+            border: 1px solid #f1b6b6;
+            color: #ac3a3a;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .btn-danger-outline:hover {
+            background: #ffe6e6;
+            border-color: #d47a7a;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 20px;
+            border: 1px solid #e8eff6;
+            background: white;
+            margin-top: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            min-width: 540px;
+        }
+        th {
+            text-align: left;
+            padding: 18px 18px 14px 18px;
+            background: #f8fafd;
+            color: #2a405b;
+            font-weight: 600;
+            border-bottom: 1px solid #dfe8f2;
+        }
+        td {
+            padding: 14px 18px;
+            border-bottom: 1px solid #eaf0f6;
+            color: #1a314a;
+            vertical-align: middle;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr:hover td {
+            background: #fafcff;
+        }
+        .teacher-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 40px;
+            background: #dbeafe;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: #1e4a7a;
+        }
+        .flex-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .badge-status {
+            background: #d1fae5;
+            color: #0b5e42;
+            padding: 4px 14px;
+            border-radius: 40px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+        .badge-status.absent {
+            background: #fee2e2;
+            color: #9b2c2c;
+        }
+        .action-icons {
+            display: flex;
+            gap: 10px;
+        }
+        .action-icons button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #6f8aaa;
+            transition: 0.1s;
+            padding: 4px 6px;
+            border-radius: 30px;
+        }
+        .action-icons button:hover {
+            background: #e6eef9;
+            color: #1d4b7a;
+        }
+        .action-icons .delete-btn:hover {
+            color: #b33636;
+            background: #ffe6e6;
+        }
+        .footer-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 28px;
+            gap: 16px;
+        }
+        .input-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        .input-group input {
+            padding: 12px 18px;
+            border-radius: 40px;
+            border: 1px solid #d6e2ef;
+            background: white;
+            font-size: 14px;
+            min-width: 200px;
+            transition: 0.15s;
+        }
+        .input-group input:focus {
+            outline: 2px solid #3b82f6;
+            border-color: transparent;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 44px 20px;
+            color: #5b718b;
+        }
+        .empty-state i {
+            font-size: 36px;
+            color: #b6cbe0;
+            margin-bottom: 12px;
+        }
+        .deploy-note {
+            margin-top: 24px;
+            background: #f0f5fe;
+            padding: 14px 20px;
+            border-radius: 40px;
+            font-size: 13px;
+            color: #1a3d64;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 20px;
+        }
+        .deploy-note i {
+            color: #2563eb;
+        }
+        .deploy-note span {
+            background: #1e293b;
+            color: white;
+            padding: 2px 14px;
+            border-radius: 40px;
+            font-family: 'Fira Code', monospace;
+            font-size: 12px;
+        }
+        @media (max-width: 700px) {
+            .app-card { padding: 18px; }
+            .status-bar { flex-direction: column; align-items: start; gap: 8px; border-radius: 28px; }
+            .footer-actions { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-card" id="app">
+    <div style="display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
+        <h1>
+            <i class="fas fa-chalkboard-teacher"></i> 
+            Meeting Tracker
+        </h1>
+        <div class="badge-github">
+            <i class="fab fa-github"></i> github.com/teacher-tracker
+        </div>
+    </div>
+    <div class="subtitle">
+        <span><i class="fas fa-database"></i> Supabase backend · real‑time</span>
+        <span><i class="fas fa-cloud-upload-alt"></i> Hosted on Vercel</span>
+        <span><i class="fas fa-check-circle"></i> <span id="connectionStatus">connected</span></span>
+    </div>
+
+    <!-- status bar -->
+    <div class="status-bar">
+        <div class="status-item"><i class="fas fa-user-graduate"></i> Teachers <span class="count" id="teacherCount">0</span></div>
+        <div class="status-item"><i class="fas fa-video"></i> Attending now <span class="count" id="attendingCount">0</span></div>
+        <div class="status-item"><i class="fas fa-clock"></i> Last updated <span id="lastUpdated">just now</span></div>
+        <button class="btn-outline" id="refreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+    </div>
+
+    <!-- table -->
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Teacher</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="teacherTableBody">
+                <!-- dynamic rows -->
+                <tr><td colspan="4" class="empty-state"><i class="fas fa-users-slash"></i><br>No teachers yet. Add one below.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- add & actions -->
+    <div class="footer-actions">
+        <div class="input-group">
+            <input type="text" id="teacherNameInput" placeholder="Full name" />
+            <input type="email" id="teacherEmailInput" placeholder="Email" />
+            <button class="btn-primary" id="addTeacherBtn"><i class="fas fa-plus-circle"></i> Add teacher</button>
+        </div>
+        <div>
+            <button class="btn-outline" id="markAllPresentBtn"><i class="fas fa-check-double"></i> Mark all present</button>
+        </div>
+    </div>
+
+    <!-- deployment info -->
+    <div class="deploy-note">
+        <i class="fas fa-code-branch"></i> Repository: <span>teacher-tracker</span> 
+        <i class="fas fa-arrow-right" style="margin-left: 4px;"></i> 
+        <i class="fas fa-globe"></i> vercel.app/teacher-tracker
+        <span style="margin-left: auto; background: #dbeafe; color: #1f4a7a;"><i class="fas fa-check-circle"></i>  Supabase ready</span>
+    </div>
+</div>
+
+<script>
+    // --------------------------------------------------------------
+    //  CONFIG: Supabase (public anon key & URL)
+    //  Replace with YOUR Supabase URL and anon key.
+    //  For demo, these are valid placeholder values (not real).
+    // --------------------------------------------------------------
+    const SUPABASE_URL = 'https://your-project.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZha2Vfa2V5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTgzMDAwMDAwMH0.fake_signature';
+
+    // For demo, we use a local fallback if no real Supabase is configured.
+    // The app will work with in-memory data and show a notice.
+    let useLocalFallback = false;
+
+    // Initialize Supabase client
+    let supabase;
+    try {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // quick check: if URL is placeholder, fallback
+        if (SUPABASE_URL.includes('your-project')) {
+            useLocalFallback = true;
+            console.warn('Using local fallback because Supabase URL is placeholder.');
+        }
+    } catch (e) {
+        useLocalFallback = true;
+        console.warn('Supabase init error, using local fallback.', e);
+    }
+
+    // ---------- local data store (fallback + cache) ----------
+    let teachers = [];
+
+    // ---------- DOM refs ----------
+    const tbody = document.getElementById('teacherTableBody');
+    const teacherCount = document.getElementById('teacherCount');
+    const attendingCount = document.getElementById('attendingCount');
+    const lastUpdated = document.getElementById('lastUpdated');
+    const connectionStatus = document.getElementById('connectionStatus');
+
+    const nameInput = document.getElementById('teacherNameInput');
+    const emailInput = document.getElementById('teacherEmailInput');
+    const addBtn = document.getElementById('addTeacherBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const markAllPresentBtn = document.getElementById('markAllPresentBtn');
+
+    // ---------- helpers ----------
+    function formatTime() {
+        const d = new Date();
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function updateStatusBar() {
+        const total = teachers.length;
+        const attending = teachers.filter(t => t.status === 'present').length;
+        teacherCount.textContent = total;
+        attendingCount.textContent = attending;
+        lastUpdated.textContent = formatTime();
+    }
+
+    // ---------- render table ----------
+    function renderTable() {
+        if (teachers.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty-state"><i class="fas fa-users-slash"></i><br>No teachers yet. Add one below.</td></tr>`;
+            updateStatusBar();
+            return;
+        }
+        let html = '';
+        teachers.forEach((teacher, index) => {
+            const statusClass = teacher.status === 'present' ? 'badge-status' : 'badge-status absent';
+            const statusLabel = teacher.status === 'present' ? '✅ Present' : '❌ Absent';
+            const initial = teacher.name ? teacher.name.charAt(0).toUpperCase() : '?';
+            html += `
+                <tr>
+                    <td>
+                        <div class="flex-row">
+                            <div class="teacher-avatar">${initial}</div>
+                            <span><strong>${teacher.name || 'Unnamed'}</strong></span>
+                        </div>
+                    </td>
+                    <td>${teacher.email || '—'}</td>
+                    <td><span class="${statusClass}">${statusLabel}</span></td>
+                    <td style="text-align: center;">
+                        <div class="action-icons">
+                            <button class="toggle-status" data-index="${index}" title="Toggle attendance"><i class="fas fa-exchange-alt"></i></button>
+                            <button class="delete-btn" data-index="${index}" title="Remove teacher"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+        updateStatusBar();
+
+        // attach events to toggle & delete buttons
+        document.querySelectorAll('.toggle-status').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.dataset.index);
+                toggleTeacherStatus(idx);
+            });
+        });
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.dataset.index);
+                deleteTeacher(idx);
+            });
+        });
+    }
+
+    // ---------- CRUD operations (sync with Supabase or local) ----------
+    async function loadTeachers() {
+        if (useLocalFallback) {
+            // load from localStorage if any
+            const stored = localStorage.getItem('teacherTracker_local');
+            if (stored) {
+                try { teachers = JSON.parse(stored); } catch(e) { teachers = []; }
+            } else {
+                // seed with demo teachers
+                teachers = [
+                    { name: 'Dr. Sarah Chen', email: 'sarah.chen@edu.org', status: 'present' },
+                    { name: 'Prof. James Miller', email: 'j.miller@edu.org', status: 'absent' },
+                    { name: 'Ms. Elena Rodriguez', email: 'e.rodriguez@edu.org', status: 'present' },
+                ];
+            }
+            renderTable();
+            connectionStatus.textContent = '⚡ local (fallback)';
+            return;
+        }
+
+        // real Supabase
+        try {
+            const { data, error } = await supabase.from('teachers').select('*');
+            if (error) throw error;
+            if (data) {
+                teachers = data;
+                renderTable();
+                connectionStatus.textContent = '✅ Supabase';
+            }
+        } catch (err) {
+            console.error('Supabase load error:', err);
+            // fallback to local storage
+            useLocalFallback = true;
+            const stored = localStorage.getItem('teacherTracker_local');
+            if (stored) {
+                try { teachers = JSON.parse(stored); } catch(e) { teachers = []; }
+            } else {
+                teachers = [
+                    { name: 'Dr. Sarah Chen', email: 'sarah.chen@edu.org', status: 'present' },
+                    { name: 'Prof. James Miller', email: 'j.miller@edu.org', status: 'absent' },
+                ];
+            }
+            renderTable();
+            connectionStatus.textContent = '⚠️ local fallback';
+        }
+    }
+
+    async function addTeacher(name, email) {
+        if (!name.trim()) { alert('Please enter a teacher name.'); return; }
+        const newTeacher = { name: name.trim(), email: email.trim() || null, status: 'absent' };
+
+        if (useLocalFallback) {
+            teachers.push(newTeacher);
+            saveLocal();
+            renderTable();
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase.from('teachers').insert([newTeacher]).select();
+            if (error) throw error;
+            if (data && data.length) {
+                teachers.push(data[0]);
+                renderTable();
+            }
+        } catch (err) {
+            console.error('Add error, fallback to local', err);
+            teachers.push(newTeacher);
+            saveLocal();
+            renderTable();
+            useLocalFallback = true;
+            connectionStatus.textContent = '⚠️ local fallback';
+        }
+    }
+
+    async function toggleTeacherStatus(index) {
+        const teacher = teachers[index];
+        if (!teacher) return;
+        const newStatus = teacher.status === 'present' ? 'absent' : 'present';
+
+        if (useLocalFallback) {
+            teacher.status = newStatus;
+            saveLocal();
+            renderTable();
+            return;
+        }
+
+        try {
+            const { error } = await supabase.from('teachers').update({ status: newStatus }).eq('id', teacher.id);
+            if (error) throw error;
+            teacher.status = newStatus;
+            renderTable();
+        } catch (err) {
+            console.error('Toggle error, fallback', err);
+            teacher.status = newStatus;
+            saveLocal();
+            renderTable();
+            useLocalFallback = true;
+        }
+    }
+
+    async function deleteTeacher(index) {
+        const teacher = teachers[index];
+        if (!teacher) return;
+        if (!confirm(`Remove "${teacher.name}" from the list?`)) return;
+
+        if (useLocalFallback) {
+            teachers.splice(index, 1);
+            saveLocal();
+            renderTable();
+            return;
+        }
+
+        try {
+            const { error } = await supabase.from('teachers').delete().eq('id', teacher.id);
+            if (error) throw error;
+            teachers.splice(index, 1);
+            renderTable();
+        } catch (err) {
+            console.error('Delete error, fallback', err);
+            teachers.splice(index, 1);
+            saveLocal();
+            renderTable();
+            useLocalFallback = true;
+        }
+    }
+
+    async function markAllPresent() {
+        if (teachers.length === 0) return;
+
+        if (useLocalFallback) {
+            teachers.forEach(t => t.status = 'present');
+            saveLocal();
+            renderTable();
+            return;
+        }
+
+        try {
+            const ids = teachers.map(t => t.id).filter(id => id);
+            if (ids.length === 0) throw new Error('No ids');
+            const { error } = await supabase.from('teachers').update({ status: 'present' }).in('id', ids);
+            if (error) throw error;
+            teachers.forEach(t => t.status = 'present');
+            renderTable();
+        } catch (err) {
+            console.warn('Mark all failed, fallback local', err);
+            teachers.forEach(t => t.status = 'present');
+            saveLocal();
+            renderTable();
+            useLocalFallback = true;
+        }
+    }
+
+    // local storage helpers
+    function saveLocal() {
+        localStorage.setItem('teacherTracker_local', JSON.stringify(teachers));
+    }
+
+    // ---------- event listeners ----------
+    addBtn.addEventListener('click', () => {
+        const name = nameInput.value.trim();
+        const email = emailInput.value.trim();
+        addTeacher(name, email);
+        nameInput.value = '';
+        emailInput.value = '';
+    });
+
+    refreshBtn.addEventListener('click', () => {
+        loadTeachers();
+    });
+
+    markAllPresentBtn.addEventListener('click', markAllPresent);
+
+    // enter key support
+    nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+    emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+
+    // ---------- init ----------
+    loadTeachers();
+</script>
+</body>
+</html>
