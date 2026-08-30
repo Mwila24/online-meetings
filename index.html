@@ -1,95 +1,284 @@
-<!-- Quick Attendance Page -->
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Attendance</title>
+  <title>Quick Attendance - Google Meet</title>
   <style>
-    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f7fa; font-family: -apple-system, sans-serif; padding: 20px; }
-    .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); max-width: 400px; width: 100%; text-align: center; }
-    h2 { color: #1a2332; margin-bottom: 8px; }
-    p { color: #718096; margin-bottom: 20px; }
-    input { width: 100%; padding: 12px; border: 1px solid #d1d8e0; border-radius: 10px; font-size: 16px; margin-bottom: 12px; }
-    button { width: 100%; padding: 12px; background: #4f8cff; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
-    button:hover { background: #3a7ae8; }
-    .success { color: #38a169; }
-    .error { color: #e53e3e; }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; }
+    .card { background: white; padding: 40px; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 420px; width: 100%; text-align: center; }
+    .logo { font-size: 48px; margin-bottom: 12px; }
+    h2 { color: #1a2332; font-size: 24px; margin-bottom: 8px; }
+    .subtitle { color: #718096; font-size: 14px; margin-bottom: 24px; }
+    .input-group { margin-bottom: 16px; text-align: left; }
+    .input-group label { display: block; font-size: 13px; font-weight: 600; color: #2d3748; margin-bottom: 4px; }
+    .input-group input { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 15px; transition: all 0.2s; }
+    .input-group input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+    .input-group input:disabled { background: #f7fafc; cursor: not-allowed; }
+    button { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+    button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .message { margin-top: 16px; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 500; display: none; }
+    .message.success { display: block; background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+    .message.error { display: block; background: #fed7d7; color: #9b2c2c; border: 1px solid #feb2b2; }
+    .message.loading { display: block; background: #bee3f8; color: #2a69ac; border: 1px solid #90cdf4; }
+    .spinner { display: inline-block; animation: spin 0.8s linear infinite; margin-right: 8px; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .teacher-info { background: #f7fafc; border-radius: 12px; padding: 12px; margin-bottom: 16px; display: none; }
+    .teacher-info.show { display: block; }
+    .teacher-info .name { font-weight: 600; color: #1a2332; }
+    .teacher-info .status { font-size: 13px; color: #718096; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>✅ Mark Attendance</h2>
-    <p>Enter your email to mark yourself present</p>
-    <input type="email" id="emailInput" placeholder="your@email.com">
-    <button id="markBtn">Mark Present</button>
-    <div id="message" style="margin-top: 12px;"></div>
-  </div>
-  <script>
-    const SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
-    const SUPABASE_ANON_KEY = 'your-anon-key';
+    <div class="logo">✅</div>
+    <h2>Mark Attendance</h2>
+    <p class="subtitle">Enter your email to mark yourself present for the Google Meet</p>
     
-    document.getElementById('markBtn').addEventListener('click', async function() {
-      const email = document.getElementById('emailInput').value.trim();
-      const message = document.getElementById('message');
+    <div class="input-group">
+      <label for="emailInput">📧 Email Address</label>
+      <input type="email" id="emailInput" placeholder="your@email.com" autocomplete="email">
+    </div>
+    
+    <button id="markBtn">✅ Mark Present</button>
+    
+    <div id="teacherInfo" class="teacher-info">
+      <div class="name" id="teacherName">Teacher Name</div>
+      <div class="status" id="teacherStatus">Status: Absent</div>
+    </div>
+    
+    <div id="message" class="message"></div>
+  </div>
+
+  <script>
+    // ============================================================
+    //  SUPABASE CONFIG - USE YOUR CREDENTIALS
+    // ============================================================
+    const SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbWdtbnpxZ3lzc2F0YWp0cHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTQ5OTcsImV4cCI6MjEwMzY5MDk5N30.Q2qg_3whnSo1sPxx7uQM4oFoEURdQCSWkR96QqlToDE';
+    
+    // ============================================================
+    //  DOM REFS
+    // ============================================================
+    const emailInput = document.getElementById('emailInput');
+    const markBtn = document.getElementById('markBtn');
+    const message = document.getElementById('message');
+    const teacherInfo = document.getElementById('teacherInfo');
+    const teacherName = document.getElementById('teacherName');
+    const teacherStatus = document.getElementById('teacherStatus');
+    
+    // ============================================================
+    //  HELPERS
+    // ============================================================
+    function showMessage(text, type) {
+      message.className = 'message ' + type;
+      message.textContent = text;
+    }
+    
+    function hideMessage() {
+      message.className = 'message';
+    }
+    
+    function showTeacherInfo(name, status) {
+      teacherInfo.classList.add('show');
+      teacherName.textContent = '👤 ' + name;
+      teacherStatus.textContent = 'Status: ' + (status === 'present' ? '✅ Present' : '❌ Absent');
+    }
+    
+    function hideTeacherInfo() {
+      teacherInfo.classList.remove('show');
+    }
+    
+    // ============================================================
+    //  API HELPERS
+    // ============================================================
+    async function supabaseFetch(path, options) {
+      const url = SUPABASE_URL + '/rest/v1/' + path;
+      const defaultHeaders = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      };
       
-      if (!email) {
-        message.innerHTML = '<span class="error">Please enter your email</span>';
+      const mergedOptions = Object.assign({}, options);
+      mergedOptions.headers = Object.assign({}, defaultHeaders, options ? options.headers : {});
+      
+      try {
+        const response = await fetch(url, mergedOptions);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error('Error ' + response.status + ': ' + errorText);
+        }
+        const data = await response.text();
+        return data ? JSON.parse(data) : null;
+      } catch (e) {
+        console.error('API error:', e);
+        throw e;
+      }
+    }
+    
+    // ============================================================
+    //  FIND TEACHER BY EMAIL
+    // ============================================================
+    async function findTeacherByEmail(email) {
+      try {
+        // Search with case-insensitive match using ILIKE
+        const response = await supabaseFetch(
+          'teachers?email=ilike.' + encodeURIComponent(email.trim()),
+          { method: 'GET' }
+        );
+        
+        if (!response || response.length === 0) {
+          // Try searching by name if email doesn't match
+          const nameResponse = await supabaseFetch(
+            'teachers?name=ilike.' + encodeURIComponent(email.trim()),
+            { method: 'GET' }
+          );
+          return nameResponse && nameResponse.length > 0 ? nameResponse[0] : null;
+        }
+        
+        return response[0];
+      } catch (e) {
+        console.error('Find teacher error:', e);
+        throw e;
+      }
+    }
+    
+    // ============================================================
+    //  MARK ATTENDANCE
+    // ============================================================
+    async function markAttendance(email) {
+      hideMessage();
+      hideTeacherInfo();
+      
+      if (!email || email.trim() === '') {
+        showMessage('Please enter your email address', 'error');
+        emailInput.focus();
         return;
       }
       
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        showMessage('Please enter a valid email address', 'error');
+        emailInput.focus();
+        return;
+      }
+      
+      // Disable button and show loading
+      markBtn.disabled = true;
+      markBtn.innerHTML = '<span class="spinner">⏳</span> Checking...';
+      showMessage('Looking up your account...', 'loading');
+      
       try {
         // Find teacher by email
-        const response = await fetch(SUPABASE_URL + '/rest/v1/teachers?email=eq.' + email, {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
-          }
-        });
+        const teacher = await findTeacherByEmail(email.trim());
         
-        const teachers = await response.json();
-        
-        if (!teachers || teachers.length === 0) {
-          message.innerHTML = '<span class="error">Teacher not found. Please contact administrator.</span>';
+        if (!teacher) {
+          showMessage('❌ Teacher not found. Please contact your administrator to be added to the system.', 'error');
+          markBtn.disabled = false;
+          markBtn.innerHTML = '✅ Mark Present';
           return;
         }
         
-        const teacher = teachers[0];
+        // Show teacher info
+        showTeacherInfo(teacher.name, teacher.status);
         
-        // Update status
-        await fetch(SUPABASE_URL + '/rest/v1/teachers?id=eq.' + teacher.id, {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ status: 'present' })
-        });
+        // Check if already present
+        if (teacher.status === 'present') {
+          showMessage('✅ You are already marked as present!', 'success');
+          markBtn.disabled = false;
+          markBtn.innerHTML = '✅ Already Present';
+          return;
+        }
         
-        // Log to history
-        await fetch(SUPABASE_URL + '/rest/v1/meeting_history', {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify([{
-            teacher_id: teacher.id,
-            status: 'present',
-            notes: 'Marked present via QR code',
-            meeting_date: new Date().toISOString()
-          }])
-        });
+        // Update status to present
+        showMessage('⏳ Marking you as present...', 'loading');
         
-        message.innerHTML = '<span class="success">✅ Attendance marked! Welcome, ' + teacher.name + '!</span>';
-        document.getElementById('emailInput').value = '';
+        const updateResponse = await supabaseFetch(
+          'teachers?id=eq.' + teacher.id,
+          {
+            method: 'PATCH',
+            headers: { 'Prefer': 'return=representation' },
+            body: JSON.stringify({ status: 'present' })
+          }
+        );
+        
+        if (!updateResponse || updateResponse.length === 0) {
+          throw new Error('Failed to update status');
+        }
+        
+        // Log to meeting history
+        try {
+          await supabaseFetch('meeting_history', {
+            method: 'POST',
+            headers: { 'Prefer': 'return=representation' },
+            body: JSON.stringify([{
+              teacher_id: teacher.id,
+              status: 'present',
+              notes: 'Marked present via QR code / self-attendance',
+              meeting_date: new Date().toISOString()
+            }])
+          });
+        } catch (historyError) {
+          console.warn('History logging failed:', historyError);
+          // Continue even if history fails
+        }
+        
+        // Success!
+        showMessage('✅ Attendance marked successfully! Welcome, ' + teacher.name + '! 🎉', 'success');
+        markBtn.innerHTML = '✅ Marked Present';
+        teacherStatus.textContent = 'Status: ✅ Present';
+        emailInput.value = '';
+        emailInput.disabled = true;
+        
+        // Re-enable after 5 seconds for next use
+        setTimeout(function() {
+          markBtn.disabled = false;
+          markBtn.innerHTML = '✅ Mark Present';
+          emailInput.disabled = false;
+          emailInput.focus();
+        }, 5000);
         
       } catch (error) {
-        message.innerHTML = '<span class="error">Error: ' + error.message + '</span>';
+        console.error('Attendance error:', error);
+        showMessage('❌ Error: ' + error.message, 'error');
+        markBtn.disabled = false;
+        markBtn.innerHTML = '✅ Mark Present';
+      }
+    }
+    
+    // ============================================================
+    //  EVENT LISTENERS
+    // ============================================================
+    
+    // Mark button click
+    markBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      markAttendance(emailInput.value);
+    });
+    
+    // Enter key support
+    emailInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        markBtn.click();
       }
     });
+    
+    // Auto-focus on page load
+    emailInput.focus();
+    
+    // ============================================================
+    //  TEST MODE - Uncomment below to test with sample data
+    // ============================================================
+    // For testing purposes, you can pre-fill with a known email
+    // emailInput.value = 'sarah@edu.org';
+    
+    console.log('✅ QR Attendance System Ready');
+    console.log('📧 Enter your email to mark attendance');
   </script>
 </body>
 </html>
