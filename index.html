@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Meeting Tracker</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -66,6 +65,23 @@
 
         .badge i {
             color: #4f8cff;
+        }
+
+        .warning-banner {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            background: #fffbeb;
+            border: 1px solid #f6d675;
+            color: #92600a;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        .warning-banner.show {
+            display: flex;
         }
 
         .status-bar {
@@ -158,6 +174,20 @@
             background: #2f855a;
         }
 
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+        }
+
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 12px;
+        }
+
         .table-wrapper {
             overflow-x: auto;
             border-radius: 16px;
@@ -237,6 +267,7 @@
             display: flex;
             gap: 6px;
             justify-content: center;
+            align-items: center;
         }
 
         .action-btns button {
@@ -255,9 +286,17 @@
             color: #2d3748;
         }
 
-        .action-btns .delete:hover {
+        .action-btns .delete-btn:hover {
             background: #fed7d7;
             color: #9b2c2c;
+        }
+
+        .confirm-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
         }
 
         .input-group {
@@ -448,12 +487,15 @@
                 Meeting Tracker
             </h1>
             <div class="badge">
-                <i class="fab fa-github"></i>
-                teacher-tracker
-                <span style="margin-left: 8px; background: #2d3748; padding: 2px 10px; border-radius: 30px; font-size: 11px;">
-                    v1.0
-                </span>
+                <i class="fas fa-database"></i>
+                <span id="modeDisplay">Local storage</span>
             </div>
+        </div>
+
+        <!-- Warning banner (shown only if persistent storage isn't available) -->
+        <div class="warning-banner" id="warningBanner">
+            <i class="fas fa-triangle-exclamation"></i>
+            <span id="warningText">Running without persistent storage — your changes will be lost on refresh.</span>
         </div>
 
         <!-- Status Bar -->
@@ -469,10 +511,6 @@
             <div class="status-item">
                 <i class="fas fa-clock"></i>
                 Last Updated: <span id="lastUpdated">Just now</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-database"></i>
-                Mode: <span id="modeDisplay">Local</span>
             </div>
         </div>
 
@@ -505,17 +543,17 @@
             <div class="input-group">
                 <input type="text" id="nameInput" placeholder="Full name *" autocomplete="off">
                 <input type="email" id="emailInput" placeholder="Email (optional)" autocomplete="off">
-                <button class="btn btn-primary" id="addBtn">
+                <button class="btn btn-primary" id="addBtn" type="button">
                     <i class="fas fa-plus-circle"></i>
                     <span id="addBtnText">Add Teacher</span>
                 </button>
             </div>
             <div class="controls">
-                <button class="btn btn-success" id="markAllBtn">
+                <button class="btn btn-success" id="markAllBtn" type="button">
                     <i class="fas fa-check-double"></i>
                     All Present
                 </button>
-                <button class="btn btn-outline" id="refreshBtn">
+                <button class="btn btn-outline" id="refreshBtn" type="button">
                     <i class="fas fa-sync-alt"></i>
                 </button>
             </div>
@@ -530,18 +568,12 @@
 
     <script>
         // ============================================================
-        //  CONFIGURATION
-        // ============================================================
-        const SUPABASE_URL = 'https://your-project.supabase.co';
-        const SUPABASE_ANON_KEY = 'your-anon-key-here';
-
-        // ============================================================
         //  STATE
         // ============================================================
         let teachers = [];
-        let supabase = null;
-        let isLocalMode = true;
-        let isProcessing = false;
+        let storageAvailable = false;
+        let pendingDeleteIndex = null;
+        const STORAGE_KEY = 'teacherData';
 
         // ============================================================
         //  DOM ELEMENTS
@@ -551,6 +583,8 @@
         const presentCount = document.getElementById('presentCount');
         const lastUpdated = document.getElementById('lastUpdated');
         const modeDisplay = document.getElementById('modeDisplay');
+        const warningBanner = document.getElementById('warningBanner');
+        const warningText = document.getElementById('warningText');
         const nameInput = document.getElementById('nameInput');
         const emailInput = document.getElementById('emailInput');
         const addBtn = document.getElementById('addBtn');
@@ -562,11 +596,21 @@
         const toastMessage = document.getElementById('toastMessage');
 
         // ============================================================
+        //  VISIBLE ERROR SURFACING
+        //  Any uncaught error shows up as a toast instead of failing
+        //  silently in the console, so problems are easy to spot.
+        // ============================================================
+        window.addEventListener('error', function(e) {
+            showToast('⚠️ Script error: ' + (e.message || 'see console'), 'error');
+        });
+
+        // ============================================================
         //  TOAST SYSTEM
         // ============================================================
         let toastTimeout = null;
 
-        function showToast(message, type = 'success') {
+        function showToast(message, type) {
+            type = type || 'success';
             toast.className = 'toast';
             toast.classList.add(type);
             toastMessage.textContent = message;
@@ -582,7 +626,7 @@
             toast.classList.add('show');
 
             if (toastTimeout) clearTimeout(toastTimeout);
-            toastTimeout = setTimeout(() => {
+            toastTimeout = setTimeout(function() {
                 toast.classList.remove('show');
             }, 3000);
         }
@@ -606,12 +650,10 @@
 
         function updateStatusBar() {
             const total = teachers.length;
-            const present = teachers.filter(t => t.status === 'present').length;
+            const present = teachers.filter(function(t) { return t.status === 'present'; }).length;
             totalCount.textContent = total;
             presentCount.textContent = present;
             lastUpdated.textContent = formatTime();
-            modeDisplay.textContent = isLocalMode ? 'Local' : 'Supabase';
-            modeDisplay.style.color = isLocalMode ? '#ed8936' : '#38a169';
         }
 
         function validateEmail(email) {
@@ -624,25 +666,47 @@
         }
 
         // ============================================================
-        //  LOCAL STORAGE
+        //  PERSISTENT STORAGE
+        //  Uses the artifact's window.storage bridge. If it isn't
+        //  present (e.g. this file opened outside Claude.ai), the app
+        //  still works for the session, just without persistence, and
+        //  a visible banner says so instead of failing silently.
         // ============================================================
-        function saveToLocal() {
-            try {
-                localStorage.setItem('teacherData', JSON.stringify(teachers));
-            } catch (e) {
-                console.warn('Failed to save to localStorage:', e);
+        function detectStorage() {
+            storageAvailable = (typeof window.storage !== 'undefined'
+                && window.storage !== null
+                && typeof window.storage.get === 'function');
+
+            if (!storageAvailable) {
+                modeDisplay.textContent = 'In-memory only';
+                warningText.textContent = 'Persistent storage isn\'t available here — your changes will be lost on refresh.';
+                warningBanner.classList.add('show');
+            } else {
+                modeDisplay.textContent = 'Saved automatically';
+                warningBanner.classList.remove('show');
             }
         }
 
-        function loadFromLocal() {
+        async function saveTeachers() {
+            if (!storageAvailable) return;
             try {
-                const data = localStorage.getItem('teacherData');
-                if (data) {
-                    teachers = JSON.parse(data);
+                await window.storage.set(STORAGE_KEY, JSON.stringify(teachers), false);
+            } catch (e) {
+                console.warn('Save failed:', e);
+                showToast('⚠️ Could not save — changes may not persist', 'error');
+            }
+        }
+
+        async function loadTeachers() {
+            if (!storageAvailable) return false;
+            try {
+                const result = await window.storage.get(STORAGE_KEY, false);
+                if (result && result.value) {
+                    teachers = JSON.parse(result.value);
                     return true;
                 }
             } catch (e) {
-                console.warn('Failed to load from localStorage:', e);
+                // Expected on first run (no key saved yet)
             }
             return false;
         }
@@ -652,34 +716,8 @@
                 { id: 1, name: 'Dr. Sarah Chen', email: 'sarah@edu.org', status: 'present' },
                 { id: 2, name: 'Prof. James Miller', email: 'james@edu.org', status: 'absent' },
                 { id: 3, name: 'Ms. Elena Rodriguez', email: 'elena@edu.org', status: 'present' },
-                { id: 4, name: 'Dr. Michael Thompson', email: 'michael@edu.org', status: 'absent' },
+                { id: 4, name: 'Dr. Michael Thompson', email: 'michael@edu.org', status: 'absent' }
             ];
-            saveToLocal();
-        }
-
-        // ============================================================
-        //  SUPABASE INIT
-        // ============================================================
-        function initSupabase() {
-            try {
-                if (typeof window.supabase !== 'undefined') {
-                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-                    if (!SUPABASE_URL.includes('your-project') &&
-                        !SUPABASE_ANON_KEY.includes('your-anon-key')) {
-                        isLocalMode = false;
-                        modeDisplay.textContent = 'Supabase';
-                        modeDisplay.style.color = '#38a169';
-                        return true;
-                    }
-                }
-            } catch (e) {
-                console.warn('Supabase init failed:', e);
-            }
-            isLocalMode = true;
-            modeDisplay.textContent = 'Local';
-            modeDisplay.style.color = '#ed8936';
-            return false;
         }
 
         // ============================================================
@@ -687,67 +725,71 @@
         // ============================================================
         function renderTable() {
             if (!teachers || teachers.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="empty-state">
-                            <i class="fas fa-users-slash"></i>
-                            No teachers added yet
-                            <br>
-                            <span style="font-size: 13px; color: #a0aec0;">Add your first teacher below</span>
-                        </td>
-                    </tr>
-                `;
+                tbody.innerHTML =
+                    '<tr><td colspan="4" class="empty-state">' +
+                    '<i class="fas fa-users-slash"></i>No teachers added yet<br>' +
+                    '<span style="font-size: 13px; color: #a0aec0;">Add your first teacher below</span>' +
+                    '</td></tr>';
                 updateStatusBar();
                 return;
             }
 
             let html = '';
-            teachers.forEach((teacher, index) => {
+            teachers.forEach(function(teacher, index) {
                 const isPresent = teacher.status === 'present';
                 const statusClass = isPresent ? 'present' : 'absent';
                 const statusText = isPresent ? '✅ Present' : '❌ Absent';
+                const isPendingDelete = pendingDeleteIndex === index;
 
-                html += `
-                    <tr>
-                        <td>
-                            <div class="teacher-info">
-                                <div class="avatar">${getInitials(teacher.name)}</div>
-                                <span><strong>${teacher.name}</strong></span>
-                            </div>
-                        </td>
-                        <td>${teacher.email || '—'}</td>
-                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                        <td>
-                            <div class="action-btns">
-                                <button class="toggle-btn" data-index="${index}" title="Toggle attendance">
-                                    <i class="fas fa-exchange-alt"></i>
-                                </button>
-                                <button class="delete-btn" data-index="${index}" title="Remove teacher">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
+                let actionsHtml;
+                if (isPendingDelete) {
+                    actionsHtml =
+                        '<div class="confirm-row">' +
+                        '<span>Remove?</span>' +
+                        '<button class="btn btn-danger btn-sm confirm-delete-btn" data-index="' + index + '">Yes</button>' +
+                        '<button class="btn btn-outline btn-sm cancel-delete-btn" data-index="' + index + '">No</button>' +
+                        '</div>';
+                } else {
+                    actionsHtml =
+                        '<div class="action-btns">' +
+                        '<button class="toggle-btn" data-index="' + index + '" title="Toggle attendance"><i class="fas fa-exchange-alt"></i></button>' +
+                        '<button class="delete-btn" data-index="' + index + '" title="Remove teacher"><i class="fas fa-trash-alt"></i></button>' +
+                        '</div>';
+                }
+
+                html +=
+                    '<tr>' +
+                    '<td><div class="teacher-info"><div class="avatar">' + getInitials(teacher.name) + '</div>' +
+                    '<span><strong>' + teacher.name + '</strong></span></div></td>' +
+                    '<td>' + (teacher.email || '—') + '</td>' +
+                    '<td><span class="status-badge ' + statusClass + '">' + statusText + '</span></td>' +
+                    '<td>' + actionsHtml + '</td>' +
+                    '</tr>';
             });
 
             tbody.innerHTML = html;
             updateStatusBar();
 
-            // Attach event listeners to toggle and delete buttons
-            document.querySelectorAll('.toggle-btn').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const index = parseInt(this.getAttribute('data-index'));
-                    toggleTeacher(index);
+            document.querySelectorAll('.toggle-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    toggleTeacher(parseInt(this.getAttribute('data-index'), 10));
                 });
             });
-
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const index = parseInt(this.getAttribute('data-index'));
-                    deleteTeacher(index);
+            document.querySelectorAll('.delete-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    pendingDeleteIndex = parseInt(this.getAttribute('data-index'), 10);
+                    renderTable();
+                });
+            });
+            document.querySelectorAll('.confirm-delete-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    deleteTeacher(parseInt(this.getAttribute('data-index'), 10));
+                });
+            });
+            document.querySelectorAll('.cancel-delete-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    pendingDeleteIndex = null;
+                    renderTable();
                 });
             });
         }
@@ -755,300 +797,80 @@
         // ============================================================
         //  CRUD OPERATIONS
         // ============================================================
-
-        // LOAD TEACHERS
-        async function loadTeachers() {
-            if (isLocalMode) {
-                if (!loadFromLocal()) {
-                    seedSampleData();
-                }
-                renderTable();
-                showToast('📚 Loaded from local storage', 'info');
-                return;
-            }
-
-            try {
-                const { data, error } = await supabase
-                    .from('teachers')
-                    .select('*')
-                    .order('name');
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    teachers = data;
-                } else {
-                    seedSampleData();
-                    await syncToSupabase();
-                }
-                renderTable();
-                showToast('✅ Loaded from Supabase', 'success');
-            } catch (err) {
-                console.error('Load error:', err);
-                isLocalMode = true;
-                modeDisplay.textContent = 'Local';
-                modeDisplay.style.color = '#ed8936';
-                if (!loadFromLocal()) {
-                    seedSampleData();
-                }
-                renderTable();
-                showToast('⚠️ Using local storage', 'error');
-            }
-        }
-
-        // ADD TEACHER - FIXED VERSION
         async function addTeacher(name, email) {
-            // Validation
             const trimmedName = name.trim();
             if (!trimmedName) {
                 showToast('Please enter a teacher name', 'error');
                 nameInput.focus();
-                return false;
+                return;
             }
 
             const trimmedEmail = email.trim() || null;
             if (trimmedEmail && !validateEmail(trimmedEmail)) {
                 showToast('Please enter a valid email address', 'error');
                 emailInput.focus();
-                return false;
+                return;
             }
 
-            // Check for duplicate
-            const duplicate = teachers.some(t =>
-                t.name.toLowerCase() === trimmedName.toLowerCase() &&
-                (t.email || '').toLowerCase() === (trimmedEmail || '').toLowerCase()
-            );
-
+            const duplicate = teachers.some(function(t) {
+                return t.name.toLowerCase() === trimmedName.toLowerCase() &&
+                    (t.email || '').toLowerCase() === (trimmedEmail || '').toLowerCase();
+            });
             if (duplicate) {
                 showToast('This teacher already exists!', 'error');
-                return false;
+                return;
             }
 
-            const newTeacher = {
-                name: trimmedName,
-                email: trimmedEmail,
-                status: 'absent'
-            };
-
-            // Disable button
-            isProcessing = true;
             addBtn.disabled = true;
             addBtnText.textContent = 'Adding...';
             const icon = addBtn.querySelector('i');
             icon.className = 'fas fa-spinner spinner';
 
-            try {
-                if (isLocalMode) {
-                    newTeacher.id = generateId();
-                    teachers.push(newTeacher);
-                    saveToLocal();
-                    renderTable();
-                    clearInputs();
-                    showToast(`✅ "${trimmedName}" added successfully`, 'success');
-                    return true;
-                }
+            teachers.push({ id: generateId(), name: trimmedName, email: trimmedEmail, status: 'absent' });
+            renderTable();
+            clearInputs();
+            await saveTeachers();
+            showToast('✅ "' + trimmedName + '" added', 'success');
 
-                const { data, error } = await supabase
-                    .from('teachers')
-                    .insert([newTeacher])
-                    .select();
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    teachers.push(data[0]);
-                    renderTable();
-                    clearInputs();
-                    showToast(`✅ "${trimmedName}" added successfully`, 'success');
-                    return true;
-                } else {
-                    throw new Error('No data returned');
-                }
-            } catch (err) {
-                console.error('Add error:', err);
-                if (!isLocalMode) {
-                    isLocalMode = true;
-                    modeDisplay.textContent = 'Local';
-                    modeDisplay.style.color = '#ed8936';
-                    newTeacher.id = generateId();
-                    teachers.push(newTeacher);
-                    saveToLocal();
-                    renderTable();
-                    clearInputs();
-                    showToast(`⚠️ Added to local storage`, 'error');
-                    return true;
-                } else {
-                    showToast(`❌ Failed to add: ${err.message}`, 'error');
-                    return false;
-                }
-            } finally {
-                isProcessing = false;
-                addBtn.disabled = false;
-                addBtnText.textContent = 'Add Teacher';
-                icon.className = 'fas fa-plus-circle';
-            }
+            addBtn.disabled = false;
+            addBtnText.textContent = 'Add Teacher';
+            icon.className = 'fas fa-plus-circle';
         }
 
-        // TOGGLE TEACHER
         async function toggleTeacher(index) {
-            if (index === undefined || index === null) {
-                console.error('Invalid index for toggle');
-                return;
-            }
-
             const teacher = teachers[index];
-            if (!teacher) {
-                console.error('Teacher not found at index:', index);
-                return;
-            }
-
-            const newStatus = teacher.status === 'present' ? 'absent' : 'present';
-
-            if (isLocalMode) {
-                teacher.status = newStatus;
-                saveToLocal();
-                renderTable();
-                showToast(`🔄 "${teacher.name}" is now ${newStatus}`, 'success');
-                return;
-            }
-
-            try {
-                const { error } = await supabase
-                    .from('teachers')
-                    .update({ status: newStatus })
-                    .eq('id', teacher.id);
-
-                if (error) throw error;
-
-                teacher.status = newStatus;
-                renderTable();
-                showToast(`🔄 "${teacher.name}" is now ${newStatus}`, 'success');
-            } catch (err) {
-                console.error('Toggle error:', err);
-                teacher.status = newStatus;
-                saveToLocal();
-                renderTable();
-                isLocalMode = true;
-                modeDisplay.textContent = 'Local';
-                modeDisplay.style.color = '#ed8936';
-                showToast(`⚠️ Updated locally`, 'error');
-            }
+            if (!teacher) return;
+            teacher.status = teacher.status === 'present' ? 'absent' : 'present';
+            renderTable();
+            await saveTeachers();
+            showToast('🔄 "' + teacher.name + '" is now ' + teacher.status, 'success');
         }
 
-        // DELETE TEACHER
         async function deleteTeacher(index) {
-            if (index === undefined || index === null) {
-                console.error('Invalid index for delete');
-                return;
-            }
-
             const teacher = teachers[index];
-            if (!teacher) {
-                console.error('Teacher not found at index:', index);
-                return;
-            }
-
-            if (!confirm(`Remove "${teacher.name}" from the list?`)) return;
-
-            if (isLocalMode) {
-                teachers.splice(index, 1);
-                saveToLocal();
-                renderTable();
-                showToast(`🗑️ "${teacher.name}" removed`, 'success');
-                return;
-            }
-
-            try {
-                const { error } = await supabase
-                    .from('teachers')
-                    .delete()
-                    .eq('id', teacher.id);
-
-                if (error) throw error;
-
-                teachers.splice(index, 1);
-                renderTable();
-                showToast(`🗑️ "${teacher.name}" removed`, 'success');
-            } catch (err) {
-                console.error('Delete error:', err);
-                teachers.splice(index, 1);
-                saveToLocal();
-                renderTable();
-                isLocalMode = true;
-                modeDisplay.textContent = 'Local';
-                modeDisplay.style.color = '#ed8936';
-                showToast(`⚠️ Removed locally`, 'error');
-            }
+            if (!teacher) return;
+            teachers.splice(index, 1);
+            pendingDeleteIndex = null;
+            renderTable();
+            await saveTeachers();
+            showToast('🗑️ "' + teacher.name + '" removed', 'success');
         }
 
-        // MARK ALL PRESENT
         async function markAllPresent() {
-            if (!teachers || teachers.length === 0) {
+            if (!teachers.length) {
                 showToast('No teachers to mark', 'error');
                 return;
             }
-
-            const allPresent = teachers.every(t => t.status === 'present');
-            if (allPresent) {
+            if (teachers.every(function(t) { return t.status === 'present'; })) {
                 showToast('All teachers are already present', 'info');
                 return;
             }
-
-            if (isLocalMode) {
-                teachers.forEach(t => t.status = 'present');
-                saveToLocal();
-                renderTable();
-                showToast(`✅ ${teachers.length} teachers marked as present`, 'success');
-                return;
-            }
-
-            try {
-                const ids = teachers.map(t => t.id).filter(id => id);
-                if (ids.length === 0) throw new Error('No valid IDs');
-
-                const { error } = await supabase
-                    .from('teachers')
-                    .update({ status: 'present' })
-                    .in('id', ids);
-
-                if (error) throw error;
-
-                teachers.forEach(t => t.status = 'present');
-                renderTable();
-                showToast(`✅ ${teachers.length} teachers marked as present`, 'success');
-            } catch (err) {
-                console.error('Mark all error:', err);
-                teachers.forEach(t => t.status = 'present');
-                saveToLocal();
-                renderTable();
-                isLocalMode = true;
-                modeDisplay.textContent = 'Local';
-                modeDisplay.style.color = '#ed8936';
-                showToast(`⚠️ Marked locally`, 'error');
-            }
+            teachers.forEach(function(t) { t.status = 'present'; });
+            renderTable();
+            await saveTeachers();
+            showToast('✅ ' + teachers.length + ' teachers marked as present', 'success');
         }
 
-        // SYNC TO SUPABASE
-        async function syncToSupabase() {
-            if (isLocalMode || !supabase) return;
-
-            try {
-                for (const teacher of teachers) {
-                    const { error } = await supabase
-                        .from('teachers')
-                        .upsert([teacher], { onConflict: 'id' });
-                    if (error) throw error;
-                }
-                showToast('✅ Synced to Supabase', 'success');
-            } catch (err) {
-                console.error('Sync error:', err);
-                showToast('⚠️ Sync failed', 'error');
-            }
-        }
-
-        // ============================================================
-        //  HELPERS
-        // ============================================================
         function clearInputs() {
             nameInput.value = '';
             emailInput.value = '';
@@ -1056,25 +878,16 @@
         }
 
         // ============================================================
-        //  EVENT LISTENERS - FIXED
+        //  EVENT LISTENERS
         // ============================================================
+        addBtn.addEventListener('click', function() {
+            addTeacher(nameInput.value, emailInput.value);
+        });
 
-        // Add button - using onclick directly for reliability
-        addBtn.onclick = function(e) {
-            e.preventDefault();
-            console.log('Add button clicked!');
-            const name = nameInput.value;
-            const email = emailInput.value;
-            addTeacher(name, email);
-        };
-
-        // Enter key support
         nameInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && this.value.trim()) {
                 e.preventDefault();
-                if (this.value.trim()) {
-                    emailInput.focus();
-                }
+                emailInput.focus();
             }
         });
 
@@ -1085,45 +898,35 @@
             }
         });
 
-        // Mark all present
-        markAllBtn.onclick = function(e) {
-            e.preventDefault();
-            markAllPresent();
-        };
+        markAllBtn.addEventListener('click', markAllPresent);
 
-        // Refresh
-        refreshBtn.onclick = function(e) {
-            e.preventDefault();
-            loadTeachers();
-        };
+        refreshBtn.addEventListener('click', async function() {
+            const found = await loadTeachers();
+            if (!found && teachers.length === 0) seedSampleData();
+            renderTable();
+            showToast('Refreshed', 'info');
+        });
 
         // ============================================================
         //  INIT
         // ============================================================
-        function init() {
-            console.log('🚀 Initializing Teacher Tracker...');
-            
-            // Initialize Supabase
-            initSupabase();
-
-            // Load teachers
-            loadTeachers();
-
-            console.log('📚 Teacher Tracker initialized');
-            console.log('Mode:', isLocalMode ? 'Local Storage' : 'Supabase');
-            console.log('Teachers:', teachers.length);
-            console.log('Add button element:', addBtn);
-
-            // Auto-refresh every 30 seconds if using Supabase
-            setInterval(() => {
-                if (!isLocalMode) {
-                    loadTeachers();
-                }
-            }, 30000);
+        async function init() {
+            detectStorage();
+            const found = await loadTeachers();
+            if (!found) {
+                seedSampleData();
+                await saveTeachers();
+            }
+            renderTable();
         }
 
-        // Start the app
-        document.addEventListener('DOMContentLoaded', init);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            // Document already parsed by the time this script ran —
+            // DOMContentLoaded would never fire, so run init directly.
+            init();
+        }
     </script>
 </body>
 </html>
