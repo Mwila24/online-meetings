@@ -1,703 +1,95 @@
+<!-- Quick Attendance Page -->
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Meet Attendance Tracker</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-  body { background: #f5f7fa; min-height: 100vh; padding: 20px; display: flex; justify-content: center; }
-  .container { max-width: 1000px; width: 100%; background: white; border-radius: 16px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
-  
-  /* Header */
-  .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-  h1 { font-size: 24px; color: #1a2332; display: flex; align-items: center; gap: 10px; }
-  h1 i { color: #4f8cff; }
-  .meet-badge { background: #ea4335; color: white; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-  
-  /* Status */
-  .subtitle { font-size: 13px; color: #718096; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #38a169; flex-shrink: 0; }
-  .dot.offline { background: #e53e3e; }
-  
-  /* Stats */
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; background: #f8fafc; padding: 14px 18px; border-radius: 12px; margin-bottom: 16px; }
-  .stat-item { text-align: center; }
-  .stat-value { font-size: 24px; font-weight: 700; color: #1a2332; }
-  .stat-label { font-size: 12px; color: #718096; margin-top: 2px; }
-  .stat-value.present { color: #38a169; }
-  .stat-value.absent { color: #e53e3e; }
-  .stat-value.total { color: #4f8cff; }
-  
-  /* Meeting Info */
-  .meeting-info { background: #fff5f5; border: 1px solid #feb2b2; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .meeting-info i { color: #ea4335; font-size: 20px; }
-  .meeting-info .meeting-link { color: #1a2332; font-weight: 500; word-break: break-all; }
-  .meeting-info .meeting-link a { color: #4f8cff; text-decoration: none; }
-  .meeting-info .meeting-link a:hover { text-decoration: underline; }
-  .btn-copy { background: #edf2f7; color: #2d3748; padding: 4px 12px; border-radius: 6px; font-size: 12px; border: none; cursor: pointer; }
-  .btn-copy:hover { background: #e2e8f0; }
-  
-  /* Teacher List */
-  .teacher-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #f1f4f8; transition: background 0.2s; }
-  .teacher-item:last-child { border-bottom: none; }
-  .teacher-item:hover { background: #fafcff; }
-  .teacher-item.present { background: #f0fff4; border-left: 3px solid #38a169; }
-  .teacher-item.absent { border-left: 3px solid transparent; }
-  
-  .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
-  .avatar.present { background: #38a169; }
-  .avatar.absent { background: #a0aec0; }
-  
-  .teacher-info { flex: 1; min-width: 0; }
-  .teacher-name { font-weight: 600; font-size: 14px; color: #1a2332; }
-  .teacher-email { font-size: 12px; color: #718096; }
-  
-  .status-badge { font-size: 12px; padding: 3px 12px; border-radius: 20px; font-weight: 600; }
-  .status-badge.present { background: #c6f6d5; color: #22543d; }
-  .status-badge.absent { background: #fed7d7; color: #9b2c2c; }
-  
-  .attendance-time { font-size: 11px; color: #a0aec0; }
-  
-  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-  .btn { border: none; border-radius: 6px; font-size: 12px; padding: 5px 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-  .btn-toggle { background: #edf2f7; color: #2d3748; }
-  .btn-toggle:hover { background: #e2e8f0; }
-  .btn-toggle.present { background: #c6f6d5; color: #22543d; }
-  .btn-toggle.present:hover { background: #9ae6b4; }
-  .btn-delete { background: #fed7d7; color: #9b2c2c; }
-  .btn-delete:hover { background: #feb2b2; }
-  .btn-history { background: #bee3f8; color: #2a69ac; }
-  .btn-history:hover { background: #90cdf4; }
-  .btn-mark { background: #38a169; color: white; }
-  .btn-mark:hover { background: #2f855a; }
-  
-  /* Form */
-  .form-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
-  .form-row input { flex: 1; min-width: 140px; padding: 9px 12px; border: 1px solid #d1d8e0; border-radius: 8px; font-size: 14px; }
-  .form-row input:focus { outline: none; border-color: #4f8cff; box-shadow: 0 0 0 3px rgba(79,140,255,0.1); }
-  .btn-add { background: #4f8cff; color: white; padding: 9px 18px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; white-space: nowrap; }
-  .btn-add:hover { background: #3a7ae8; }
-  .btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
-  
-  .empty-state { text-align: center; color: #a0aec0; padding: 40px 0; }
-  .empty-state i { font-size: 40px; display: block; margin-bottom: 12px; color: #cbd5e0; }
-  
-  /* Toast */
-  .toast { position: fixed; bottom: 24px; right: 24px; background: #38a169; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); display: none; max-width: 360px; z-index: 1000; animation: slideUp 0.3s ease; }
-  .toast.show { display: block; }
-  .toast.error { background: #e53e3e; }
-  .toast.info { background: #3182ce; }
-  
-  /* Modal */
-  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center; }
-  .modal.show { display: flex; }
-  .modal-content { background: white; padding: 24px; border-radius: 16px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
-  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-  .modal-header h3 { color: #1a2332; }
-  .modal-close { background: #edf2f7; border: none; color: #2d3748; padding: 4px 12px; border-radius: 8px; font-size: 20px; cursor: pointer; }
-  .modal-close:hover { background: #e2e8f0; }
-  .history-item { padding: 8px 0; border-bottom: 1px solid #f1f4f8; font-size: 14px; }
-  .history-item:last-child { border-bottom: none; }
-  .history-status { font-weight: 600; }
-  .history-status.present { color: #22543d; }
-  .history-status.absent { color: #9b2c2c; }
-  .history-date { color: #718096; font-size: 12px; }
-  .history-notes { color: #4a5568; font-size: 13px; margin-top: 4px; }
-  
-  @keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  
-  @media (max-width: 600px) {
-    .container { padding: 16px; }
-    .stats-grid { grid-template-columns: repeat(3, 1fr); padding: 12px; }
-    .stat-value { font-size: 20px; }
-    .teacher-item { flex-wrap: wrap; }
-    .actions { margin-top: 4px; width: 100%; justify-content: flex-start; }
-    .form-row { flex-direction: column; }
-    .form-row input { width: 100%; }
-    .btn-add { width: 100%; justify-content: center; }
-    .meeting-info { flex-direction: column; align-items: stretch; text-align: center; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick Attendance</title>
+  <style>
+    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f7fa; font-family: -apple-system, sans-serif; padding: 20px; }
+    .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); max-width: 400px; width: 100%; text-align: center; }
+    h2 { color: #1a2332; margin-bottom: 8px; }
+    p { color: #718096; margin-bottom: 20px; }
+    input { width: 100%; padding: 12px; border: 1px solid #d1d8e0; border-radius: 10px; font-size: 16px; margin-bottom: 12px; }
+    button { width: 100%; padding: 12px; background: #4f8cff; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    button:hover { background: #3a7ae8; }
+    .success { color: #38a169; }
+    .error { color: #e53e3e; }
+  </style>
 </head>
 <body>
-<div class="container">
-  <!-- Header -->
-  <div class="header">
-    <h1><i class="fas fa-video"></i> Google Meet Tracker</h1>
-    <div class="meet-badge"><i class="fab fa-google"></i> meet.google.com</div>
+  <div class="card">
+    <h2>✅ Mark Attendance</h2>
+    <p>Enter your email to mark yourself present</p>
+    <input type="email" id="emailInput" placeholder="your@email.com">
+    <button id="markBtn">Mark Present</button>
+    <div id="message" style="margin-top: 12px;"></div>
   </div>
-  
-  <!-- Connection Status -->
-  <div class="subtitle">
-    <span class="dot" id="connDot"></span>
-    <span id="connText">Connecting to Supabase…</span>
-    <span style="margin-left: auto; font-size: 11px; color: #a0aec0;">Live attendance tracking</span>
-  </div>
-  
-  <!-- Meeting Info -->
-  <div class="meeting-info">
-    <i class="fas fa-link"></i>
-    <span class="meeting-link">
-      Current Meeting: <a href="#" id="meetingLink" target="_blank">https://meet.google.com/abc-defg-hij</a>
-    </span>
-    <button class="btn-copy" onclick="copyMeetingLink()">📋 Copy</button>
-    <span style="margin-left: auto; font-size: 12px; color: #718096;">
-      <i class="fas fa-users"></i> <span id="liveCount">0</span> attending now
-    </span>
-  </div>
-  
-  <!-- Stats -->
-  <div class="stats-grid">
-    <div class="stat-item">
-      <div class="stat-value total" id="totalCount">0</div>
-      <div class="stat-label">Total Teachers</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-value present" id="presentCount">0</div>
-      <div class="stat-label">✅ In Meeting</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-value absent" id="absentCount">0</div>
-      <div class="stat-label">❌ Not Attending</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-value" id="lastUpdated" style="font-size:14px;">—</div>
-      <div class="stat-label">Last Updated</div>
-    </div>
-  </div>
-  
-  <!-- Teacher List -->
-  <div id="teacherList"></div>
-  
-  <!-- Add Teacher Form -->
-  <div class="form-row">
-    <input id="nameInput" placeholder="Full name *" autocomplete="off">
-    <input id="emailInput" placeholder="Email (optional)" autocomplete="off">
-    <button class="btn-add" id="addBtn"><span id="addBtnText">➕ Add Teacher</span></button>
-  </div>
-  <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-    <button class="btn btn-mark" id="markAllBtn">✅ Mark All Present (in meeting)</button>
-    <button class="btn btn-history" id="refreshBtn">🔄 Refresh</button>
-  </div>
-</div>
-
-<!-- History Modal -->
-<div class="modal" id="historyModal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3 id="historyModalTitle">📜 Attendance History</h3>
-      <button class="modal-close" id="historyModalClose">&times;</button>
-    </div>
-    <div id="historyList"></div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
-<!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-<script>
-// ============================================================
-//  SUPABASE CONFIG
-// ============================================================
-var SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbWdtbnpxZ3lzc2F0YWp0cHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTQ5OTcsImV4cCI6MjEwMzY5MDk5N30.Q2qg_3whnSo1sPxx7uQM4oFoEURdQCSWkR96QqlToDE';
-
-// ============================================================
-//  STATE
-// ============================================================
-var teachers = [];
-var isLoading = false;
-
-// ============================================================
-//  DOM REFS
-// ============================================================
-var listEl = document.getElementById('teacherList');
-var totalEl = document.getElementById('totalCount');
-var presentEl = document.getElementById('presentCount');
-var absentEl = document.getElementById('absentCount');
-var liveCountEl = document.getElementById('liveCount');
-var lastUpdatedEl = document.getElementById('lastUpdated');
-var connDot = document.getElementById('connDot');
-var connText = document.getElementById('connText');
-var nameInput = document.getElementById('nameInput');
-var emailInput = document.getElementById('emailInput');
-var addBtn = document.getElementById('addBtn');
-var addBtnText = document.getElementById('addBtnText');
-var markAllBtn = document.getElementById('markAllBtn');
-var refreshBtn = document.getElementById('refreshBtn');
-var toast = document.getElementById('toast');
-var historyModal = document.getElementById('historyModal');
-var historyModalTitle = document.getElementById('historyModalTitle');
-var historyList = document.getElementById('historyList');
-var historyModalClose = document.getElementById('historyModalClose');
-var meetingLink = document.getElementById('meetingLink');
-var toastTimer = null;
-
-// ============================================================
-//  MEETING LINK
-// ============================================================
-// You can change this to your actual Google Meet link
-var MEET_LINK = 'https://meet.google.com/abc-defg-hij';
-
-meetingLink.textContent = MEET_LINK;
-meetingLink.href = MEET_LINK;
-
-function copyMeetingLink() {
-  navigator.clipboard.writeText(MEET_LINK).then(function() {
-    showToast('📋 Meeting link copied!');
-  }).catch(function() {
-    // Fallback
-    var input = document.createElement('input');
-    input.value = MEET_LINK;
-    document.body.appendChild(input);
-    input.select();
-    document.execCommand('copy');
-    document.body.removeChild(input);
-    showToast('📋 Meeting link copied!');
-  });
-}
-
-// ============================================================
-//  TOAST
-// ============================================================
-function showToast(msg, isError) {
-  toast.textContent = msg;
-  toast.className = 'toast show' + (isError ? ' error' : '');
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(function() { toast.className = 'toast'; }, 3500);
-}
-
-// ============================================================
-//  HELPERS
-// ============================================================
-function setConnected(ok, label) {
-  connDot.className = ok ? 'dot' : 'dot offline';
-  connText.textContent = label;
-}
-
-function initials(name) {
-  return name ? name.charAt(0).toUpperCase() : '?';
-}
-
-function validEmail(email) {
-  if (!email) return true;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  var div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-function getTimestamp() {
-  return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  var date = new Date(dateStr);
-  return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-function updateStats() {
-  var total = teachers.length;
-  var present = teachers.filter(function(t) { return t.status === 'present'; }).length;
-  var absent = total - present;
-  totalEl.textContent = total;
-  presentEl.textContent = present;
-  absentEl.textContent = absent;
-  liveCountEl.textContent = present;
-  lastUpdatedEl.textContent = getTimestamp();
-}
-
-// ============================================================
-//  SUPABASE API
-// ============================================================
-async function supabaseFetch(path, options) {
-  var url = SUPABASE_URL + '/rest/v1/' + path;
-  var defaultHeaders = {
-    'apikey': SUPABASE_ANON_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-    'Content-Type': 'application/json'
-  };
-  var mergedOptions = Object.assign({}, options);
-  mergedOptions.headers = Object.assign({}, defaultHeaders, options ? options.headers : {});
-  
-  try {
-    var response = await fetch(url, mergedOptions);
-    if (!response.ok) {
-      var errorText = await response.text();
-      throw new Error('Error ' + response.status + ': ' + errorText);
-    }
-    var data = await response.text();
-    return data ? JSON.parse(data) : null;
-  } catch (e) {
-    console.error('API error:', e);
-    throw e;
-  }
-}
-
-async function fetchTeachers() {
-  return await supabaseFetch('teachers?select=*&order=name.asc', { method: 'GET' });
-}
-
-async function insertTeacher(name, email) {
-  return await supabaseFetch('teachers', {
-    method: 'POST',
-    headers: { 'Prefer': 'return=representation' },
-    body: JSON.stringify([{ name: name, email: email || null, status: 'absent' }])
-  });
-}
-
-async function updateTeacherStatus(id, status) {
-  return await supabaseFetch('teachers?id=eq.' + id, {
-    method: 'PATCH',
-    headers: { 'Prefer': 'return=representation' },
-    body: JSON.stringify({ status: status })
-  });
-}
-
-async function deleteTeacherRow(id) {
-  return await supabaseFetch('teachers?id=eq.' + id, { method: 'DELETE' });
-}
-
-async function markAllPresentAPI(ids) {
-  var idList = ids.join(',');
-  return await supabaseFetch('teachers?id=in.(' + idList + ')', {
-    method: 'PATCH',
-    body: JSON.stringify({ status: 'present' })
-  });
-}
-
-async function fetchHistory(teacherId) {
-  return await supabaseFetch(
-    'meeting_history?teacher_id=eq.' + teacherId + '&order=meeting_date.desc',
-    { method: 'GET' }
-  );
-}
-
-async function insertHistory(teacherId, status, notes) {
-  try {
-    return await supabaseFetch('meeting_history', {
-      method: 'POST',
-      headers: { 'Prefer': 'return=representation' },
-      body: JSON.stringify([{
-        teacher_id: teacherId,
-        status: status,
-        notes: notes || 'Attendance recorded',
-        meeting_date: new Date().toISOString()
-      }])
-    });
-  } catch (e) {
-    console.warn('History insert skipped:', e.message);
-    return null;
-  }
-}
-
-// ============================================================
-//  RENDER
-// ============================================================
-function render() {
-  updateStats();
-
-  if (teachers.length === 0) {
-    listEl.innerHTML = '<div class="empty-state"><i class="fas fa-users-slash"></i>No teachers added yet<br><span style="font-size:13px;color:#cbd5e0;">Add teachers to track Google Meet attendance</span></div>';
-    return;
-  }
-
-  var html = '';
-  teachers.forEach(function(t, i) {
-    var isPresent = t.status === 'present';
-    var statusText = isPresent ? '✅ In Meeting' : '❌ Not Attending';
-    var avatarClass = isPresent ? 'present' : 'absent';
-    var rowClass = isPresent ? 'teacher-item present' : 'teacher-item absent';
+  <script>
+    const SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
+    const SUPABASE_ANON_KEY = 'your-anon-key';
     
-    html += '<div class="' + rowClass + '">' +
-      '<div class="avatar ' + avatarClass + '">' + initials(t.name) + '</div>' +
-      '<div class="teacher-info">' +
-        '<div class="teacher-name">' + escapeHtml(t.name) + '</div>' +
-        (t.email ? '<div class="teacher-email">📧 ' + escapeHtml(t.email) + '</div>' : '') +
-      '</div>' +
-      '<span class="status-badge ' + (isPresent ? 'present' : 'absent') + '">' + statusText + '</span>' +
-      (isPresent ? '<span class="attendance-time">🟢 Live</span>' : '') +
-      '<div class="actions">' +
-        '<button class="btn btn-toggle ' + (isPresent ? 'present' : '') + '" data-index="' + i + '">' + 
-          (isPresent ? '❌ Mark Absent' : '✅ Mark Present') + 
-        '</button>' +
-        '<button class="btn btn-history" data-id="' + t.id + '" data-name="' + escapeHtml(t.name) + '">📜 History</button>' +
-        '<button class="btn btn-delete" data-index="' + i + '">🗑️</button>' +
-      '</div></div>';
-  });
-  listEl.innerHTML = html;
-
-  // Event listeners
-  listEl.querySelectorAll('.btn-toggle').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var i = parseInt(this.getAttribute('data-index'), 10);
-      toggleTeacher(i);
-    });
-  });
-
-  listEl.querySelectorAll('.btn-history').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = parseInt(this.getAttribute('data-id'), 10);
-      var name = this.getAttribute('data-name');
-      showHistory(id, name);
-    });
-  });
-
-  listEl.querySelectorAll('.btn-delete').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var i = parseInt(this.getAttribute('data-index'), 10);
-      deleteTeacher(i);
-    });
-  });
-}
-
-// ============================================================
-//  CRUD
-// ============================================================
-
-async function loadTeachers(showToastMsg) {
-  if (isLoading) return;
-  isLoading = true;
-  
-  try {
-    var data = await fetchTeachers();
-    teachers = data || [];
-    setConnected(true, '✅ Connected to Supabase');
-    render();
-    if (showToastMsg) showToast('📚 Loaded ' + teachers.length + ' teachers');
-  } catch (e) {
-    setConnected(false, '⚠️ Offline mode');
-    showToast('❌ Load failed: ' + e.message, true);
-  } finally {
-    isLoading = false;
-  }
-}
-
-async function addTeacher() {
-  var name = nameInput.value.trim();
-  var email = emailInput.value.trim();
-
-  if (!name) {
-    showToast('Please enter a teacher name', true);
-    nameInput.focus();
-    return;
-  }
-
-  if (!validEmail(email)) {
-    showToast('Please enter a valid email', true);
-    emailInput.focus();
-    return;
-  }
-
-  var dup = teachers.some(function(t) {
-    return t.name.toLowerCase() === name.toLowerCase();
-  });
-  if (dup) {
-    showToast('⚠️ "' + name + '" already exists', true);
-    nameInput.focus();
-    return;
-  }
-
-  addBtn.disabled = true;
-  addBtnText.textContent = 'Adding...';
-  
-  try {
-    var inserted = await insertTeacher(name, email || null);
-    if (inserted && inserted.length > 0) {
-      var newTeacher = inserted[0];
-      teachers.push(newTeacher);
+    document.getElementById('markBtn').addEventListener('click', async function() {
+      const email = document.getElementById('emailInput').value.trim();
+      const message = document.getElementById('message');
+      
+      if (!email) {
+        message.innerHTML = '<span class="error">Please enter your email</span>';
+        return;
+      }
       
       try {
-        await insertHistory(newTeacher.id, 'absent', 'Teacher added to tracking system');
-      } catch(e) {}
-      
-      nameInput.value = '';
-      emailInput.value = '';
-      nameInput.focus();
-      render();
-      showToast('✅ "' + name + '" added to tracking');
-    }
-  } catch (e) {
-    showToast('❌ Add failed: ' + e.message, true);
-  } finally {
-    addBtn.disabled = false;
-    addBtnText.textContent = '➕ Add Teacher';
-  }
-}
-
-async function toggleTeacher(index) {
-  var t = teachers[index];
-  if (!t) return;
-  
-  var newStatus = t.status === 'present' ? 'absent' : 'present';
-  var oldStatus = t.status;
-  var action = newStatus === 'present' ? 'joined' : 'left';
-  
-  t.status = newStatus;
-  render();
-  
-  try {
-    await updateTeacherStatus(t.id, newStatus);
-    
-    try {
-      var notes = 'Teacher ' + action + ' the Google Meet meeting';
-      await insertHistory(t.id, newStatus, notes);
-    } catch(e) {}
-    
-    showToast('🔄 "' + t.name + '" is now ' + (newStatus === 'present' ? 'in the meeting' : 'not attending'));
-  } catch (e) {
-    t.status = oldStatus;
-    render();
-    showToast('❌ Update failed: ' + e.message, true);
-  }
-}
-
-async function deleteTeacher(index) {
-  var t = teachers[index];
-  if (!t) return;
-  if (!confirm('Remove "' + t.name + '" from tracking?')) return;
-  
-  try {
-    await supabaseFetch('meeting_history?teacher_id=eq.' + t.id, { method: 'DELETE' });
-    await deleteTeacherRow(t.id);
-    teachers.splice(index, 1);
-    render();
-    showToast('🗑️ "' + t.name + '" removed');
-  } catch (e) {
-    showToast('❌ Delete failed: ' + e.message, true);
-  }
-}
-
-async function markAllPresent() {
-  if (teachers.length === 0) {
-    showToast('No teachers to mark', true);
-    return;
-  }
-  
-  var allPresent = teachers.every(function(t) { return t.status === 'present'; });
-  if (allPresent) {
-    showToast('All teachers are already in the meeting');
-    return;
-  }
-  
-  var ids = teachers.map(function(t) { return t.id; });
-  var oldStatuses = teachers.map(function(t) { return t.status; });
-  
-  teachers.forEach(function(t) { t.status = 'present'; });
-  render();
-  
-  try {
-    await markAllPresentAPI(ids);
-    
-    try {
-      for (var i = 0; i < teachers.length; i++) {
-        if (oldStatuses[i] !== 'present') {
-          await insertHistory(teachers[i].id, 'present', 'Marked present in Google Meet (bulk action)');
+        // Find teacher by email
+        const response = await fetch(SUPABASE_URL + '/rest/v1/teachers?email=eq.' + email, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+          }
+        });
+        
+        const teachers = await response.json();
+        
+        if (!teachers || teachers.length === 0) {
+          message.innerHTML = '<span class="error">Teacher not found. Please contact administrator.</span>';
+          return;
         }
+        
+        const teacher = teachers[0];
+        
+        // Update status
+        await fetch(SUPABASE_URL + '/rest/v1/teachers?id=eq.' + teacher.id, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'present' })
+        });
+        
+        // Log to history
+        await fetch(SUPABASE_URL + '/rest/v1/meeting_history', {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify([{
+            teacher_id: teacher.id,
+            status: 'present',
+            notes: 'Marked present via QR code',
+            meeting_date: new Date().toISOString()
+          }])
+        });
+        
+        message.innerHTML = '<span class="success">✅ Attendance marked! Welcome, ' + teacher.name + '!</span>';
+        document.getElementById('emailInput').value = '';
+        
+      } catch (error) {
+        message.innerHTML = '<span class="error">Error: ' + error.message + '</span>';
       }
-    } catch(e) {}
-    
-    showToast('✅ All ' + teachers.length + ' teachers marked as attending');
-  } catch (e) {
-    teachers.forEach(function(t, idx) { t.status = oldStatuses[idx]; });
-    render();
-    showToast('❌ Failed: ' + e.message, true);
-  }
-}
-
-async function showHistory(teacherId, teacherName) {
-  historyModalTitle.textContent = '📜 Attendance History: ' + teacherName;
-  historyList.innerHTML = '<div style="text-align:center;padding:20px;color:#a0aec0;">Loading...</div>';
-  historyModal.classList.add('show');
-  
-  try {
-    var history = await fetchHistory(teacherId);
-    
-    if (!history || history.length === 0) {
-      historyList.innerHTML = '<div style="text-align:center;padding:20px;color:#a0aec0;">No attendance records found</div>';
-      return;
-    }
-    
-    var html = '';
-    history.forEach(function(item) {
-      var statusClass = item.status === 'present' ? 'present' : 'absent';
-      var statusText = item.status === 'present' ? '✅ In Meeting' : '❌ Not Attending';
-      html += '<div class="history-item">' +
-        '<div><span class="history-status ' + statusClass + '">' + statusText + '</span></div>' +
-        '<div class="history-date">📅 ' + formatDate(item.meeting_date) + '</div>' +
-        (item.notes ? '<div class="history-notes">📝 ' + escapeHtml(item.notes) + '</div>' : '') +
-      '</div>';
     });
-    historyList.innerHTML = html;
-  } catch (e) {
-    historyList.innerHTML = '<div style="text-align:center;padding:20px;color:#e53e3e;">❌ Failed to load history</div>';
-  }
-}
-
-// ============================================================
-//  EVENT LISTENERS
-// ============================================================
-
-addBtn.addEventListener('click', addTeacher);
-
-nameInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    if (this.value.trim()) emailInput.focus();
-  }
-});
-
-emailInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    addBtn.click();
-  }
-});
-
-markAllBtn.addEventListener('click', markAllPresent);
-refreshBtn.addEventListener('click', function() { loadTeachers(true); });
-
-historyModalClose.addEventListener('click', function() {
-  historyModal.classList.remove('show');
-});
-
-historyModal.addEventListener('click', function(e) {
-  if (e.target === this) historyModal.classList.remove('show');
-});
-
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && historyModal.classList.contains('show')) {
-    historyModal.classList.remove('show');
-  }
-});
-
-// ============================================================
-//  INIT
-// ============================================================
-function init() {
-  loadTeachers(false);
-  setInterval(function() {
-    if (!isLoading) loadTeachers(false);
-  }, 30000);
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
-</script>
+  </script>
 </body>
 </html>
