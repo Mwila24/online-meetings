@@ -127,6 +127,11 @@
             background: #2563eb;
             transform: scale(1.01);
         }
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
         .btn-outline {
             background: transparent;
             border: 1px solid #cbd9e8;
@@ -259,6 +264,7 @@
             flex-wrap: wrap;
             gap: 12px;
             align-items: center;
+            flex: 1;
         }
         .input-group input {
             padding: 12px 18px;
@@ -266,12 +272,17 @@
             border: 1px solid #d6e2ef;
             background: white;
             font-size: 14px;
-            min-width: 200px;
+            flex: 1;
+            min-width: 150px;
             transition: 0.15s;
         }
         .input-group input:focus {
             outline: 2px solid #3b82f6;
             border-color: transparent;
+        }
+        .input-group input:disabled {
+            background: #f5f7fa;
+            cursor: not-allowed;
         }
         .empty-state {
             text-align: center;
@@ -306,10 +317,46 @@
             font-family: 'Fira Code', monospace;
             font-size: 12px;
         }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #1e293b;
+            color: white;
+            padding: 14px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        .toast.show {
+            display: flex;
+        }
+        .toast.success {
+            background: #0b5e42;
+        }
+        .toast.error {
+            background: #9b2c2c;
+        }
+        .toast i {
+            font-size: 20px;
+        }
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
         @media (max-width: 700px) {
             .app-card { padding: 18px; }
             .status-bar { flex-direction: column; align-items: start; gap: 8px; border-radius: 28px; }
             .footer-actions { flex-direction: column; align-items: stretch; }
+            .input-group input { min-width: 120px; }
         }
     </style>
 </head>
@@ -360,9 +407,12 @@
     <!-- add & actions -->
     <div class="footer-actions">
         <div class="input-group">
-            <input type="text" id="teacherNameInput" placeholder="Full name" />
-            <input type="email" id="teacherEmailInput" placeholder="Email" />
-            <button class="btn-primary" id="addTeacherBtn"><i class="fas fa-plus-circle"></i> Add teacher</button>
+            <input type="text" id="teacherNameInput" placeholder="Full name *" required />
+            <input type="email" id="teacherEmailInput" placeholder="Email (optional)" />
+            <button class="btn-primary" id="addTeacherBtn">
+                <i class="fas fa-plus-circle"></i> 
+                <span id="addBtnText">Add teacher</span>
+            </button>
         </div>
         <div>
             <button class="btn-outline" id="markAllPresentBtn"><i class="fas fa-check-double"></i> Mark all present</button>
@@ -378,37 +428,44 @@
     </div>
 </div>
 
-<script>
-    // --------------------------------------------------------------
-    //  CONFIG: Supabase (public anon key & URL)
-    //  Replace with YOUR Supabase URL and anon key.
-    //  For demo, these are valid placeholder values (not real).
-    // --------------------------------------------------------------
-    const SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbWdtbnpxZ3lzc2F0YWp0cHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTQ5OTcsImV4cCI6MjEwMzY5MDk5N30.Q2qg_3whnSo1sPxx7uQM4oFoEURdQCSWkR96QqlToDE';
+<!-- Toast notification -->
+<div id="toast" class="toast">
+    <i id="toastIcon" class="fas fa-check-circle"></i>
+    <span id="toastMessage">Teacher added successfully!</span>
+</div>
 
-    // For demo, we use a local fallback if no real Supabase is configured.
-    // The app will work with in-memory data and show a notice.
+<script>
+    // ============================================================
+    //  CONFIG: Supabase (Replace with YOUR credentials)
+    // ============================================================
+    const SUPABASE_URL = 'https://your-project.supabase.co';
+    const SUPABASE_ANON_KEY = 'your-anon-key-here';
+
+    // For demo purposes, we'll use a local fallback if Supabase isn't configured
     let useLocalFallback = false;
+    let supabase;
 
     // Initialize Supabase client
-    let supabase;
     try {
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        // quick check: if URL is placeholder, fallback
         if (SUPABASE_URL.includes('your-project')) {
             useLocalFallback = true;
-            console.warn('Using local fallback because Supabase URL is placeholder.');
+            console.warn('Using local fallback - please configure Supabase URL and anon key');
         }
     } catch (e) {
         useLocalFallback = true;
         console.warn('Supabase init error, using local fallback.', e);
     }
 
-    // ---------- local data store (fallback + cache) ----------
+    // ============================================================
+    //  STATE
+    // ============================================================
     let teachers = [];
+    let isAdding = false;
 
-    // ---------- DOM refs ----------
+    // ============================================================
+    //  DOM REFS
+    // ============================================================
     const tbody = document.getElementById('teacherTableBody');
     const teacherCount = document.getElementById('teacherCount');
     const attendingCount = document.getElementById('attendingCount');
@@ -418,10 +475,43 @@
     const nameInput = document.getElementById('teacherNameInput');
     const emailInput = document.getElementById('teacherEmailInput');
     const addBtn = document.getElementById('addTeacherBtn');
+    const addBtnText = document.getElementById('addBtnText');
     const refreshBtn = document.getElementById('refreshBtn');
     const markAllPresentBtn = document.getElementById('markAllPresentBtn');
 
-    // ---------- helpers ----------
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    const toastIcon = document.getElementById('toastIcon');
+
+    // ============================================================
+    //  TOAST NOTIFICATIONS
+    // ============================================================
+    let toastTimeout;
+
+    function showToast(message, type = 'success') {
+        toast.className = 'toast';
+        toast.classList.add(type);
+        toastMessage.textContent = message;
+        
+        if (type === 'success') {
+            toastIcon.className = 'fas fa-check-circle';
+        } else if (type === 'error') {
+            toastIcon.className = 'fas fa-exclamation-circle';
+        } else {
+            toastIcon.className = 'fas fa-info-circle';
+        }
+        
+        toast.classList.add('show');
+        
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // ============================================================
+    //  HELPERS
+    // ============================================================
     function formatTime() {
         const d = new Date();
         return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -435,13 +525,22 @@
         lastUpdated.textContent = formatTime();
     }
 
-    // ---------- render table ----------
+    function validateEmail(email) {
+        if (!email) return true;
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    }
+
+    // ============================================================
+    //  RENDER TABLE
+    // ============================================================
     function renderTable() {
         if (teachers.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" class="empty-state"><i class="fas fa-users-slash"></i><br>No teachers yet. Add one below.</td></tr>`;
             updateStatusBar();
             return;
         }
+        
         let html = '';
         teachers.forEach((teacher, index) => {
             const statusClass = teacher.status === 'present' ? 'badge-status' : 'badge-status absent';
@@ -469,7 +568,7 @@
         tbody.innerHTML = html;
         updateStatusBar();
 
-        // attach events to toggle & delete buttons
+        // Attach events to toggle & delete buttons
         document.querySelectorAll('.toggle-status').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const idx = parseInt(btn.dataset.index);
@@ -484,185 +583,354 @@
         });
     }
 
-    // ---------- CRUD operations (sync with Supabase or local) ----------
+    // ============================================================
+    //  LOCAL STORAGE (for fallback)
+    // ============================================================
+    function saveLocal() {
+        localStorage.setItem('teacherTracker_local', JSON.stringify(teachers));
+    }
+
+    function loadLocal() {
+        const stored = localStorage.getItem('teacherTracker_local');
+        if (stored) {
+            try { 
+                teachers = JSON.parse(stored); 
+            } catch(e) { 
+                teachers = []; 
+            }
+        } else {
+            // Seed with sample data
+            teachers = [
+                { name: 'Dr. Sarah Chen', email: 'sarah.chen@edu.org', status: 'present' },
+                { name: 'Prof. James Miller', email: 'j.miller@edu.org', status: 'absent' },
+                { name: 'Ms. Elena Rodriguez', email: 'e.rodriguez@edu.org', status: 'present' },
+            ];
+            saveLocal();
+        }
+        renderTable();
+    }
+
+    // ============================================================
+    //  CRUD OPERATIONS (with Supabase)
+    // ============================================================
+
+    // LOAD TEACHERS
     async function loadTeachers() {
         if (useLocalFallback) {
-            // load from localStorage if any
-            const stored = localStorage.getItem('teacherTracker_local');
-            if (stored) {
-                try { teachers = JSON.parse(stored); } catch(e) { teachers = []; }
-            } else {
-                // seed with demo teachers
-                teachers = [
-                    { name: 'Dr. Sarah Chen', email: 'sarah.chen@edu.org', status: 'present' },
-                    { name: 'Prof. James Miller', email: 'j.miller@edu.org', status: 'absent' },
-                    { name: 'Ms. Elena Rodriguez', email: 'e.rodriguez@edu.org', status: 'present' },
-                ];
-            }
-            renderTable();
+            loadLocal();
             connectionStatus.textContent = '⚡ local (fallback)';
             return;
         }
 
-        // real Supabase
         try {
-            const { data, error } = await supabase.from('teachers').select('*');
+            const { data, error } = await supabase
+                .from('teachers')
+                .select('*')
+                .order('name');
+            
             if (error) throw error;
+            
             if (data) {
                 teachers = data;
                 renderTable();
                 connectionStatus.textContent = '✅ Supabase';
+                console.log('Loaded teachers from Supabase:', teachers.length);
             }
         } catch (err) {
             console.error('Supabase load error:', err);
-            // fallback to local storage
+            // Fallback to local
             useLocalFallback = true;
-            const stored = localStorage.getItem('teacherTracker_local');
-            if (stored) {
-                try { teachers = JSON.parse(stored); } catch(e) { teachers = []; }
-            } else {
-                teachers = [
-                    { name: 'Dr. Sarah Chen', email: 'sarah.chen@edu.org', status: 'present' },
-                    { name: 'Prof. James Miller', email: 'j.miller@edu.org', status: 'absent' },
-                ];
-            }
-            renderTable();
+            loadLocal();
             connectionStatus.textContent = '⚠️ local fallback';
+            showToast('Using local storage - Supabase connection failed', 'error');
         }
     }
 
+    // ADD TEACHER - ENHANCED VERSION
     async function addTeacher(name, email) {
-        if (!name.trim()) { alert('Please enter a teacher name.'); return; }
-        const newTeacher = { name: name.trim(), email: email.trim() || null, status: 'absent' };
-
-        if (useLocalFallback) {
-            teachers.push(newTeacher);
-            saveLocal();
-            renderTable();
-            return;
+        // Validate inputs
+        const trimmedName = name.trim();
+        if (!trimmedName) {
+            showToast('Please enter a teacher name', 'error');
+            nameInput.focus();
+            return false;
         }
 
+        const trimmedEmail = email.trim() || null;
+        if (trimmedEmail && !validateEmail(trimmedEmail)) {
+            showToast('Please enter a valid email address', 'error');
+            emailInput.focus();
+            return false;
+        }
+
+        // Check for duplicate
+        const duplicate = teachers.some(t => 
+            t.name.toLowerCase() === trimmedName.toLowerCase() && 
+            (t.email || '').toLowerCase() === (trimmedEmail || '').toLowerCase()
+        );
+        if (duplicate) {
+            showToast('This teacher already exists in the list', 'error');
+            return false;
+        }
+
+        const newTeacher = { 
+            name: trimmedName, 
+            email: trimmedEmail, 
+            status: 'absent' 
+        };
+
+        // Disable button and show loading state
+        isAdding = true;
+        addBtn.disabled = true;
+        addBtnText.textContent = 'Adding...';
+        addBtn.querySelector('i').className = 'fas fa-spinner spinner';
+
         try {
-            const { data, error } = await supabase.from('teachers').insert([newTeacher]).select();
+            if (useLocalFallback) {
+                // Local mode
+                teachers.push(newTeacher);
+                saveLocal();
+                renderTable();
+                showToast(`✅ "${trimmedName}" added successfully (local)`, 'success');
+                clearInputs();
+                return true;
+            }
+
+            // Supabase mode
+            const { data, error } = await supabase
+                .from('teachers')
+                .insert([newTeacher])
+                .select();
+            
             if (error) throw error;
+            
             if (data && data.length) {
                 teachers.push(data[0]);
                 renderTable();
+                showToast(`✅ "${trimmedName}" added successfully!`, 'success');
+                clearInputs();
+                return true;
+            } else {
+                throw new Error('No data returned from insert');
             }
         } catch (err) {
-            console.error('Add error, fallback to local', err);
-            teachers.push(newTeacher);
-            saveLocal();
-            renderTable();
-            useLocalFallback = true;
-            connectionStatus.textContent = '⚠️ local fallback';
+            console.error('Add error:', err);
+            
+            // Fallback to local if Supabase fails
+            if (!useLocalFallback) {
+                useLocalFallback = true;
+                connectionStatus.textContent = '⚠️ local fallback';
+                teachers.push(newTeacher);
+                saveLocal();
+                renderTable();
+                showToast(`⚠️ Added "${trimmedName}" to local storage (Supabase error)`, 'error');
+                clearInputs();
+                return true;
+            } else {
+                showToast(`❌ Failed to add "${trimmedName}": ${err.message}`, 'error');
+                return false;
+            }
+        } finally {
+            // Re-enable button
+            isAdding = false;
+            addBtn.disabled = false;
+            addBtnText.textContent = 'Add teacher';
+            addBtn.querySelector('i').className = 'fas fa-plus-circle';
         }
     }
 
+    function clearInputs() {
+        nameInput.value = '';
+        emailInput.value = '';
+        nameInput.focus();
+    }
+
+    // TOGGLE TEACHER STATUS
     async function toggleTeacherStatus(index) {
         const teacher = teachers[index];
         if (!teacher) return;
+        
         const newStatus = teacher.status === 'present' ? 'absent' : 'present';
+        const oldStatus = teacher.status;
 
         if (useLocalFallback) {
             teacher.status = newStatus;
             saveLocal();
             renderTable();
+            showToast(`🔄 "${teacher.name}" is now ${newStatus}`, 'success');
             return;
         }
 
         try {
-            const { error } = await supabase.from('teachers').update({ status: newStatus }).eq('id', teacher.id);
+            const { error } = await supabase
+                .from('teachers')
+                .update({ status: newStatus })
+                .eq('id', teacher.id);
+            
             if (error) throw error;
+            
             teacher.status = newStatus;
             renderTable();
+            showToast(`🔄 "${teacher.name}" is now ${newStatus}`, 'success');
         } catch (err) {
-            console.error('Toggle error, fallback', err);
+            console.error('Toggle error:', err);
+            // Fallback
             teacher.status = newStatus;
             saveLocal();
             renderTable();
             useLocalFallback = true;
+            connectionStatus.textContent = '⚠️ local fallback';
+            showToast(`⚠️ Status updated locally (Supabase error)`, 'error');
         }
     }
 
+    // DELETE TEACHER
     async function deleteTeacher(index) {
         const teacher = teachers[index];
         if (!teacher) return;
+        
         if (!confirm(`Remove "${teacher.name}" from the list?`)) return;
 
         if (useLocalFallback) {
             teachers.splice(index, 1);
             saveLocal();
             renderTable();
+            showToast(`🗑️ "${teacher.name}" removed`, 'success');
             return;
         }
 
         try {
-            const { error } = await supabase.from('teachers').delete().eq('id', teacher.id);
+            const { error } = await supabase
+                .from('teachers')
+                .delete()
+                .eq('id', teacher.id);
+            
             if (error) throw error;
+            
             teachers.splice(index, 1);
             renderTable();
+            showToast(`🗑️ "${teacher.name}" removed successfully`, 'success');
         } catch (err) {
-            console.error('Delete error, fallback', err);
+            console.error('Delete error:', err);
+            // Fallback
             teachers.splice(index, 1);
             saveLocal();
             renderTable();
             useLocalFallback = true;
+            connectionStatus.textContent = '⚠️ local fallback';
+            showToast(`⚠️ "${teacher.name}" removed locally (Supabase error)`, 'error');
         }
     }
 
+    // MARK ALL PRESENT
     async function markAllPresent() {
-        if (teachers.length === 0) return;
+        if (teachers.length === 0) {
+            showToast('No teachers to mark', 'error');
+            return;
+        }
+
+        const presentCount = teachers.filter(t => t.status === 'present').length;
+        if (presentCount === teachers.length) {
+            showToast('All teachers are already present', 'info');
+            return;
+        }
 
         if (useLocalFallback) {
             teachers.forEach(t => t.status = 'present');
             saveLocal();
             renderTable();
+            showToast(`✅ ${teachers.length} teachers marked as present`, 'success');
             return;
         }
 
         try {
             const ids = teachers.map(t => t.id).filter(id => id);
-            if (ids.length === 0) throw new Error('No ids');
-            const { error } = await supabase.from('teachers').update({ status: 'present' }).in('id', ids);
+            if (ids.length === 0) throw new Error('No valid IDs');
+            
+            const { error } = await supabase
+                .from('teachers')
+                .update({ status: 'present' })
+                .in('id', ids);
+            
             if (error) throw error;
+            
             teachers.forEach(t => t.status = 'present');
             renderTable();
+            showToast(`✅ ${teachers.length} teachers marked as present`, 'success');
         } catch (err) {
-            console.warn('Mark all failed, fallback local', err);
+            console.warn('Mark all failed:', err);
+            // Fallback
             teachers.forEach(t => t.status = 'present');
             saveLocal();
             renderTable();
             useLocalFallback = true;
+            connectionStatus.textContent = '⚠️ local fallback';
+            showToast(`⚠️ Marked locally (Supabase error)`, 'error');
         }
     }
 
-    // local storage helpers
-    function saveLocal() {
-        localStorage.setItem('teacherTracker_local', JSON.stringify(teachers));
-    }
+    // ============================================================
+    //  EVENT LISTENERS
+    // ============================================================
 
-    // ---------- event listeners ----------
-    addBtn.addEventListener('click', () => {
-        const name = nameInput.value.trim();
-        const email = emailInput.value.trim();
-        addTeacher(name, email);
-        nameInput.value = '';
-        emailInput.value = '';
+    // ADD BUTTON - MAIN FUNCTIONALITY
+    addBtn.addEventListener('click', async () => {
+        const name = nameInput.value;
+        const email = emailInput.value;
+        await addTeacher(name, email);
     });
 
+    // Enter key support
+    nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (!nameInput.value.trim()) {
+                nameInput.focus();
+                return;
+            }
+            if (!emailInput.value.trim()) {
+                emailInput.focus();
+                return;
+            }
+            addBtn.click();
+        }
+    });
+
+    emailInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addBtn.click();
+        }
+    });
+
+    // Refresh button
     refreshBtn.addEventListener('click', () => {
         loadTeachers();
+        showToast('🔄 Refreshed data', 'success');
     });
 
+    // Mark all present button
     markAllPresentBtn.addEventListener('click', markAllPresent);
 
-    // enter key support
-    nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
-    emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
-
-    // ---------- init ----------
+    // ============================================================
+    //  INITIALIZATION
+    // ============================================================
+    
+    // Load data on startup
     loadTeachers();
+
+    // Show connection status
+    console.log('Teacher Tracker initialized');
+    console.log('Mode:', useLocalFallback ? 'Local Fallback' : 'Supabase');
+    console.log('Teachers loaded:', teachers.length);
+
+    // Auto-refresh every 30 seconds (optional)
+    setInterval(() => {
+        if (!useLocalFallback) {
+            loadTeachers();
+        }
+    }, 30000);
+
 </script>
 </body>
 </html>
