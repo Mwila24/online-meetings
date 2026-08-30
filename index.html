@@ -7,15 +7,16 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   body { background: #f5f7fa; min-height: 100vh; padding: 20px; display: flex; justify-content: center; }
-  .container { max-width: 700px; width: 100%; background: white; border-radius: 16px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+  .container { max-width: 900px; width: 100%; background: white; border-radius: 16px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
   h1 { font-size: 22px; color: #1a2332; margin-bottom: 4px; }
-  .subtitle { font-size: 13px; color: #718096; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+  .subtitle { font-size: 13px; color: #718096; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #38a169; flex-shrink: 0; }
   .dot.offline { background: #e53e3e; }
-  .status-bar { display: flex; gap: 20px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; color: #2d3748; }
+  .status-bar { display: flex; gap: 20px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; color: #2d3748; flex-wrap: wrap; }
   .status-bar b { color: #1a2332; }
-  .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f4f8; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f4f8; flex-wrap: wrap; }
   .row:last-child { border-bottom: none; }
+  .row:hover { background: #fafcff; }
   .avatar { width: 34px; height: 34px; border-radius: 50%; background: #e9edf2; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #2d3748; flex-shrink: 0; }
   .name { font-weight: 600; font-size: 14px; color: #1a2332; }
   .email { font-size: 12px; color: #718096; }
@@ -23,87 +24,162 @@
   .badge { font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
   .badge.present { background: #c6f6d5; color: #22543d; }
   .badge.absent { background: #fed7d7; color: #9b2c2c; }
-  .actions { display: flex; gap: 6px; }
-  button { cursor: pointer; border: none; border-radius: 8px; font-size: 13px; padding: 6px 10px; font-weight: 600; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { cursor: pointer; border: none; border-radius: 8px; font-size: 13px; padding: 6px 10px; font-weight: 600; transition: all 0.2s; }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-toggle { background: #edf2f7; color: #2d3748; }
   .btn-toggle:hover { background: #e2e8f0; }
   .btn-delete { background: #fed7d7; color: #9b2c2c; }
   .btn-delete:hover { background: #feb2b2; }
+  .btn-history { background: #bee3f8; color: #2a69ac; }
+  .btn-history:hover { background: #90cdf4; }
   .empty { text-align: center; color: #a0aec0; padding: 30px 0; font-size: 14px; }
   .form-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
   input { flex: 1; min-width: 140px; padding: 9px 12px; border: 1px solid #d1d8e0; border-radius: 8px; font-size: 14px; }
-  input:focus { outline: none; border-color: #4f8cff; }
+  input:focus { outline: none; border-color: #4f8cff; box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.1); }
   .btn-add { background: #4f8cff; color: white; padding: 9px 18px; border-radius: 8px; white-space: nowrap; }
   .btn-add:hover { background: #3a7ae8; }
+  .btn-add:active { transform: scale(0.97); }
   .error-text { color: #c53030; font-size: 13px; margin-top: 6px; display: none; }
-  .footer-row { margin-top: 16px; }
+  .footer-row { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
   .btn-markall { background: #38a169; color: white; padding: 8px 16px; border-radius: 8px; }
   .btn-markall:hover { background: #2f855a; }
-  .btn-refresh { background: #edf2f7; color: #2d3748; padding: 8px 16px; border-radius: 8px; margin-left: 8px; }
-  .toast { position: fixed; bottom: 24px; right: 24px; background: #38a169; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); display: none; max-width: 320px; }
+  .btn-refresh { background: #edf2f7; color: #2d3748; padding: 8px 16px; border-radius: 8px; }
+  .btn-refresh:hover { background: #e2e8f0; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #38a169; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); display: none; max-width: 320px; z-index: 1000; animation: slideUp 0.3s ease; }
   .toast.show { display: block; }
   .toast.error { background: #e53e3e; }
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center; }
+  .modal.show { display: flex; }
+  .modal-content { background: white; padding: 24px; border-radius: 16px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .modal-header h3 { color: #1a2332; }
+  .modal-close { background: #edf2f7; color: #2d3748; padding: 4px 12px; border-radius: 8px; font-size: 20px; }
+  .modal-close:hover { background: #e2e8f0; }
+  .history-item { padding: 8px 0; border-bottom: 1px solid #f1f4f8; font-size: 14px; }
+  .history-item:last-child { border-bottom: none; }
+  .history-status { font-weight: 600; }
+  .history-status.present { color: #22543d; }
+  .history-status.absent { color: #9b2c2c; }
+  .history-date { color: #718096; font-size: 12px; }
+  .history-notes { color: #4a5568; font-size: 13px; margin-top: 4px; }
+  @media (max-width: 480px) {
+    .container { padding: 16px; }
+    .status-bar { gap: 8px; flex-direction: column; }
+    .form-row { flex-direction: column; }
+    .btn-add { width: 100%; justify-content: center; }
+    .row { padding: 8px 0; flex-direction: column; align-items: stretch; }
+    .actions { justify-content: center; }
+    .footer-row { flex-direction: column; }
+    .footer-row button { width: 100%; justify-content: center; }
+  }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>Teacher meeting tracker</h1>
-  <div class="subtitle"><span class="dot" id="connDot"></span><span id="connText">Connecting to Supabase…</span></div>
-  <div class="status-bar">
-    <div>Total: <b id="totalCount">0</b></div>
-    <div>Present: <b id="presentCount">0</b></div>
+  <h1>📚 Teacher Meeting Tracker</h1>
+  <div class="subtitle">
+    <span class="dot" id="connDot"></span>
+    <span id="connText">Connecting to Supabase…</span>
+    <span style="margin-left: auto; font-size: 11px; color: #a0aec0;">v2.0 with meeting history</span>
   </div>
+  
+  <div class="status-bar">
+    <div>👥 Total: <b id="totalCount">0</b></div>
+    <div>✅ Present: <b id="presentCount">0</b></div>
+    <div>❌ Absent: <b id="absentCount">0</b></div>
+    <div style="margin-left: auto; font-size: 12px; color: #a0aec0;">Last updated: <span id="lastUpdated">—</span></div>
+  </div>
+  
   <div id="list"></div>
+  
   <div class="form-row">
-    <input id="nameInput" placeholder="Full name" autocomplete="off">
+    <input id="nameInput" placeholder="Full name *" autocomplete="off">
     <input id="emailInput" placeholder="Email (optional)" autocomplete="off">
-    <button class="btn-add" id="addBtn" type="button">Add teacher</button>
+    <button class="btn-add" id="addBtn" type="button"><span id="addBtnText">Add teacher</span></button>
   </div>
   <div class="error-text" id="errorText"></div>
+  
   <div class="footer-row">
-    <button class="btn-markall" id="markAllBtn" type="button">Mark all present</button>
-    <button class="btn-refresh" id="refreshBtn" type="button">Refresh</button>
+    <button class="btn-markall" id="markAllBtn" type="button">✅ Mark all present</button>
+    <button class="btn-refresh" id="refreshBtn" type="button">🔄 Refresh</button>
   </div>
 </div>
+
+<!-- History Modal -->
+<div class="modal" id="historyModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="historyModalTitle">Meeting History</h3>
+      <button class="modal-close" id="historyModalClose">&times;</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
+// ============================================================
+//  SUPABASE CONFIGURATION
+// ============================================================
 var SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbWdtbnpxZ3lzc2F0YWp0cHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTQ5OTcsImV4cCI6MjEwMzY5MDk5N30.Q2qg_3whnSo1sPxx7uQM4oFoEURdQCSWkR96QqlToDE';
-var REST_URL = SUPABASE_URL + '/rest/v1/teachers';
-var HEADERS = {
-  'apikey': SUPABASE_ANON_KEY,
-  'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-  'Content-Type': 'application/json'
-};
 
+// ============================================================
+//  STATE
+// ============================================================
 var teachers = [];
+var isLoading = false;
+var currentTeacherId = null;
 
+// ============================================================
+//  DOM REFERENCES
+// ============================================================
 var listEl = document.getElementById('list');
 var totalEl = document.getElementById('totalCount');
 var presentEl = document.getElementById('presentCount');
+var absentEl = document.getElementById('absentCount');
+var lastUpdatedEl = document.getElementById('lastUpdated');
 var connDot = document.getElementById('connDot');
 var connText = document.getElementById('connText');
 var nameInput = document.getElementById('nameInput');
 var emailInput = document.getElementById('emailInput');
 var addBtn = document.getElementById('addBtn');
+var addBtnText = document.getElementById('addBtnText');
 var markAllBtn = document.getElementById('markAllBtn');
 var refreshBtn = document.getElementById('refreshBtn');
 var errorText = document.getElementById('errorText');
 var toast = document.getElementById('toast');
+var historyModal = document.getElementById('historyModal');
+var historyModalTitle = document.getElementById('historyModalTitle');
+var historyList = document.getElementById('historyList');
+var historyModalClose = document.getElementById('historyModalClose');
 var toastTimer = null;
 
+// ============================================================
+//  TOAST SYSTEM
+// ============================================================
 function showToast(msg, isError) {
   toast.textContent = msg;
   toast.className = 'toast show' + (isError ? ' error' : '');
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(function () { toast.className = 'toast'; }, 3000);
+  toastTimer = setTimeout(function () { 
+    toast.className = 'toast'; 
+  }, 3500);
 }
 
+// ============================================================
+//  HELPERS
+// ============================================================
 function showError(msg) {
   errorText.textContent = msg;
   errorText.style.display = 'block';
+  setTimeout(function() { errorText.style.display = 'none'; }, 4000);
 }
 
 function clearError() {
@@ -125,207 +201,454 @@ function validEmail(email) {
 }
 
 function escapeHtml(str) {
+  if (!str) return '';
   var div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
 }
 
-async function apiRequest(path, options) {
-  var resp = await fetch(REST_URL + path, options);
-  if (!resp.ok) {
-    var text = await resp.text();
-    throw new Error('Supabase error ' + resp.status + ': ' + text);
-  }
-  var text2 = await resp.text();
-  return text2 ? JSON.parse(text2) : null;
+function getTimestamp() {
+  var now = new Date();
+  return now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  var date = new Date(dateStr);
+  return date.toLocaleString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function updateStats() {
+  var total = teachers.length;
+  var present = teachers.filter(function(t) { return t.status === 'present'; }).length;
+  var absent = total - present;
+  totalEl.textContent = total;
+  presentEl.textContent = present;
+  absentEl.textContent = absent;
+  lastUpdatedEl.textContent = getTimestamp();
+}
+
+// ============================================================
+//  SUPABASE API CALLS
+// ============================================================
+async function supabaseFetch(path, options) {
+  var url = SUPABASE_URL + '/rest/v1/' + path;
+  var defaultHeaders = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+    'Content-Type': 'application/json'
+  };
+  
+  var mergedOptions = Object.assign({}, options);
+  mergedOptions.headers = Object.assign({}, defaultHeaders, options ? options.headers : {});
+  
+  try {
+    var response = await fetch(url, mergedOptions);
+    if (!response.ok) {
+      var errorText = await response.text();
+      throw new Error('Supabase error ' + response.status + ': ' + errorText);
+    }
+    var data = await response.text();
+    return data ? JSON.parse(data) : null;
+  } catch (e) {
+    console.error('Supabase API error:', e);
+    throw e;
+  }
+}
+
+// ============================================================
+//  DATABASE OPERATIONS
+// ============================================================
+
+// TEACHERS
 async function fetchTeachers() {
-  return apiRequest('?select=*&order=name.asc', { headers: HEADERS });
+  return await supabaseFetch('teachers?select=*&order=name.asc', {
+    method: 'GET'
+  });
 }
 
 async function insertTeacher(name, email) {
-  return apiRequest('', {
+  return await supabaseFetch('teachers', {
     method: 'POST',
-    headers: Object.assign({ 'Prefer': 'return=representation' }, HEADERS),
-    body: JSON.stringify([{ name: name, email: email }])
+    headers: { 'Prefer': 'return=representation' },
+    body: JSON.stringify([{ name: name, email: email || null, status: 'absent' }])
   });
 }
 
 async function updateTeacherStatus(id, status) {
-  return apiRequest('?id=eq.' + id, {
+  return await supabaseFetch('teachers?id=eq.' + id, {
     method: 'PATCH',
-    headers: Object.assign({ 'Prefer': 'return=representation' }, HEADERS),
-    body: JSON.stringify({ status: status })
-  });
-}
-
-async function updateManyStatus(ids, status) {
-  var idList = ids.join(',');
-  return apiRequest('?id=in.(' + idList + ')', {
-    method: 'PATCH',
-    headers: HEADERS,
+    headers: { 'Prefer': 'return=representation' },
     body: JSON.stringify({ status: status })
   });
 }
 
 async function deleteTeacherRow(id) {
-  return apiRequest('?id=eq.' + id, {
-    method: 'DELETE',
-    headers: HEADERS
+  return await supabaseFetch('teachers?id=eq.' + id, {
+    method: 'DELETE'
   });
 }
 
+async function markAllPresentAPI(ids) {
+  var idList = ids.join(',');
+  return await supabaseFetch('teachers?id=in.(' + idList + ')', {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'present' })
+  });
+}
+
+// MEETING HISTORY
+async function fetchMeetingHistory(teacherId) {
+  return await supabaseFetch(
+    'meeting_history?teacher_id=eq.' + teacherId + '&order=meeting_date.desc',
+    { method: 'GET' }
+  );
+}
+
+async function insertMeetingHistory(teacherId, status, notes) {
+  return await supabaseFetch('meeting_history', {
+    method: 'POST',
+    headers: { 'Prefer': 'return=representation' },
+    body: JSON.stringify([{ 
+      teacher_id: teacherId, 
+      status: status, 
+      notes: notes || 'Status changed',
+      meeting_date: new Date().toISOString()
+    }])
+  });
+}
+
+// ============================================================
+//  RENDER FUNCTIONS
+// ============================================================
+
 function render() {
-  totalEl.textContent = teachers.length;
-  presentEl.textContent = teachers.filter(function (t) { return t.status === 'present'; }).length;
+  updateStats();
 
   if (teachers.length === 0) {
-    listEl.innerHTML = '<div class="empty">No teachers added yet</div>';
+    listEl.innerHTML = '<div class="empty">👩‍🏫 No teachers added yet<br><span style="font-size: 12px; color: #cbd5e0;">Add your first teacher above</span></div>';
     return;
   }
 
   var html = '';
   teachers.forEach(function (t, i) {
     var isPresent = t.status === 'present';
+    var statusText = isPresent ? '✅ Present' : '❌ Absent';
     html += '<div class="row">' +
       '<div class="avatar">' + initials(t.name) + '</div>' +
-      '<div class="info"><div class="name">' + escapeHtml(t.name) + '</div>' +
-      (t.email ? '<div class="email">' + escapeHtml(t.email) + '</div>' : '') + '</div>' +
-      '<span class="badge ' + (isPresent ? 'present' : 'absent') + '">' + (isPresent ? 'Present' : 'Absent') + '</span>' +
+      '<div class="info">' +
+        '<div class="name">' + escapeHtml(t.name) + '</div>' +
+        (t.email ? '<div class="email">📧 ' + escapeHtml(t.email) + '</div>' : '') +
+      '</div>' +
+      '<span class="badge ' + (isPresent ? 'present' : 'absent') + '">' + statusText + '</span>' +
       '<div class="actions">' +
-      '<button class="btn-toggle" data-act="toggle" data-i="' + i + '" type="button">Toggle</button>' +
-      '<button class="btn-delete" data-act="delete" data-i="' + i + '" type="button">Remove</button>' +
+        '<button class="btn-toggle" data-index="' + i + '" type="button">🔄 Toggle</button>' +
+        '<button class="btn-history" data-id="' + t.id + '" data-name="' + escapeHtml(t.name) + '" type="button">📜 History</button>' +
+        '<button class="btn-delete" data-index="' + i + '" type="button">🗑️ Remove</button>' +
       '</div></div>';
   });
   listEl.innerHTML = html;
 
-  listEl.querySelectorAll('button[data-act]').forEach(function (btn) {
+  // Attach event listeners
+  listEl.querySelectorAll('.btn-toggle').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      var i = parseInt(btn.getAttribute('data-i'), 10);
-      var act = btn.getAttribute('data-act');
-      if (act === 'toggle') toggleTeacher(i);
-      if (act === 'delete') deleteTeacher(i);
+      var i = parseInt(this.getAttribute('data-index'), 10);
+      toggleTeacher(i);
+    });
+  });
+
+  listEl.querySelectorAll('.btn-history').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = parseInt(this.getAttribute('data-id'), 10);
+      var name = this.getAttribute('data-name');
+      showHistory(id, name);
+    });
+  });
+
+  listEl.querySelectorAll('.btn-delete').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var i = parseInt(this.getAttribute('data-index'), 10);
+      deleteTeacher(i);
     });
   });
 }
 
-async function loadTeachers(showLoadedToast) {
+// ============================================================
+//  CRUD OPERATIONS
+// ============================================================
+
+// LOAD TEACHERS
+async function loadTeachers(showToastMsg) {
+  if (isLoading) return;
+  isLoading = true;
+  
   try {
     var data = await fetchTeachers();
     teachers = data || [];
-    setConnected(true, 'Connected to Supabase');
+    setConnected(true, '✅ Connected to Supabase');
     render();
-    if (showLoadedToast) showToast('Loaded ' + teachers.length + ' teachers');
+    if (showToastMsg) {
+      showToast('📚 Loaded ' + teachers.length + ' teachers');
+    }
   } catch (e) {
-    setConnected(false, 'Could not reach Supabase');
-    showToast('Load failed: ' + e.message, true);
+    console.error('Load error:', e);
+    setConnected(false, '⚠️ Could not reach Supabase');
+    showToast('❌ Load failed: ' + e.message, true);
+  } finally {
+    isLoading = false;
   }
 }
 
-async function toggleTeacher(i) {
-  var t = teachers[i];
-  var newStatus = t.status === 'present' ? 'absent' : 'present';
-  var prevStatus = t.status;
-  t.status = newStatus;
-  render();
-  try {
-    await updateTeacherStatus(t.id, newStatus);
-    showToast(t.name + ' is now ' + newStatus);
-  } catch (e) {
-    t.status = prevStatus;
-    render();
-    showToast('Update failed: ' + e.message, true);
-  }
-}
-
-async function deleteTeacher(i) {
-  var t = teachers[i];
-  if (!confirm('Remove ' + t.name + ' from the list?')) return;
-  try {
-    await deleteTeacherRow(t.id);
-    teachers.splice(i, 1);
-    render();
-    showToast(t.name + ' removed');
-  } catch (e) {
-    showToast('Delete failed: ' + e.message, true);
-  }
-}
-
+// ADD TEACHER
 async function addTeacher() {
   clearError();
   var name = nameInput.value.trim();
   var email = emailInput.value.trim();
 
   if (!name) {
-    showError('Enter a name first');
+    showError('Please enter a teacher name');
     nameInput.focus();
     return;
   }
+
   if (!validEmail(email)) {
-    showError('Enter a valid email or leave it blank');
+    showError('Please enter a valid email or leave it blank');
     emailInput.focus();
     return;
   }
+
   var dup = teachers.some(function (t) {
     return t.name.toLowerCase() === name.toLowerCase();
   });
   if (dup) {
-    showError('That teacher is already on the list');
+    showError('⚠️ "' + name + '" is already on the list');
+    nameInput.focus();
     return;
   }
 
   addBtn.disabled = true;
+  addBtnText.textContent = 'Adding...';
+  
   try {
     var inserted = await insertTeacher(name, email || null);
-    if (inserted && inserted.length) {
-      teachers.push(inserted[0]);
+    if (inserted && inserted.length > 0) {
+      var newTeacher = inserted[0];
+      teachers.push(newTeacher);
+      
+      // Log initial status in history
+      await insertMeetingHistory(newTeacher.id, 'absent', 'Teacher added');
+      
+      nameInput.value = '';
+      emailInput.value = '';
+      nameInput.focus();
+      render();
+      showToast('✅ "' + name + '" added successfully');
+    } else {
+      throw new Error('No data returned from insert');
     }
-    nameInput.value = '';
-    emailInput.value = '';
-    nameInput.focus();
-    render();
-    showToast(name + ' added');
   } catch (e) {
-    showToast('Add failed: ' + e.message, true);
+    console.error('Add error:', e);
+    showToast('❌ Add failed: ' + e.message, true);
   } finally {
     addBtn.disabled = false;
+    addBtnText.textContent = 'Add teacher';
   }
 }
 
+// TOGGLE TEACHER STATUS
+async function toggleTeacher(index) {
+  var t = teachers[index];
+  if (!t) return;
+  
+  var newStatus = t.status === 'present' ? 'absent' : 'present';
+  var oldStatus = t.status;
+  
+  t.status = newStatus;
+  render();
+  
+  try {
+    await updateTeacherStatus(t.id, newStatus);
+    
+    // Log to meeting history
+    var notes = 'Status changed from ' + oldStatus + ' to ' + newStatus;
+    await insertMeetingHistory(t.id, newStatus, notes);
+    
+    showToast('🔄 "' + t.name + '" is now ' + newStatus);
+  } catch (e) {
+    t.status = oldStatus;
+    render();
+    showToast('❌ Toggle failed: ' + e.message, true);
+  }
+}
+
+// DELETE TEACHER
+async function deleteTeacher(index) {
+  var t = teachers[index];
+  if (!t) return;
+  
+  if (!confirm('🗑️ Remove "' + t.name + '" from the list?\nThis will also remove their meeting history.')) return;
+  
+  try {
+    // Delete meeting history first (if cascade is not set)
+    await supabaseFetch('meeting_history?teacher_id=eq.' + t.id, {
+      method: 'DELETE'
+    });
+    
+    await deleteTeacherRow(t.id);
+    teachers.splice(index, 1);
+    render();
+    showToast('🗑️ "' + t.name + '" removed');
+  } catch (e) {
+    showToast('❌ Delete failed: ' + e.message, true);
+  }
+}
+
+// MARK ALL PRESENT
 async function markAllPresent() {
   if (teachers.length === 0) {
     showToast('No teachers to mark', true);
     return;
   }
+  
+  var allPresent = teachers.every(function(t) { return t.status === 'present'; });
+  if (allPresent) {
+    showToast('All teachers are already present', false);
+    return;
+  }
+  
   var ids = teachers.map(function (t) { return t.id; });
-  var prevStatuses = teachers.map(function (t) { return t.status; });
+  var oldStatuses = teachers.map(function (t) { return t.status; });
+  
   teachers.forEach(function (t) { t.status = 'present'; });
   render();
+  
   try {
-    await updateManyStatus(ids, 'present');
-    showToast('All teachers marked present');
+    await markAllPresentAPI(ids);
+    
+    // Log to meeting history for all teachers
+    for (var i = 0; i < teachers.length; i++) {
+      if (oldStatuses[i] !== 'present') {
+        await insertMeetingHistory(teachers[i].id, 'present', 'Marked present via bulk action');
+      }
+    }
+    
+    showToast('✅ All ' + teachers.length + ' teachers marked as present');
   } catch (e) {
-    teachers.forEach(function (t, idx) { t.status = prevStatuses[idx]; });
+    teachers.forEach(function (t, idx) { t.status = oldStatuses[idx]; });
     render();
-    showToast('Mark all failed: ' + e.message, true);
+    showToast('❌ Mark all failed: ' + e.message, true);
   }
 }
 
-addBtn.addEventListener('click', addTeacher);
-markAllBtn.addEventListener('click', markAllPresent);
-refreshBtn.addEventListener('click', function () { loadTeachers(true); });
-nameInput.addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') { e.preventDefault(); addTeacher(); }
-});
-emailInput.addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') { e.preventDefault(); addTeacher(); }
-});
-
-function init() {
-  loadTeachers(false);
+// SHOW HISTORY
+async function showHistory(teacherId, teacherName) {
+  currentTeacherId = teacherId;
+  historyModalTitle.textContent = '📜 Meeting History: ' + teacherName;
+  historyList.innerHTML = '<div style="text-align:center;padding:20px;color:#a0aec0;">Loading history...</div>';
+  historyModal.classList.add('show');
+  
+  try {
+    var history = await fetchMeetingHistory(teacherId);
+    
+    if (!history || history.length === 0) {
+      historyList.innerHTML = '<div style="text-align:center;padding:20px;color:#a0aec0;">No meeting history found</div>';
+      return;
+    }
+    
+    var html = '';
+    history.forEach(function (item) {
+      var statusClass = item.status === 'present' ? 'present' : 'absent';
+      var statusText = item.status === 'present' ? '✅ Present' : '❌ Absent';
+      html += '<div class="history-item">' +
+        '<div><span class="history-status ' + statusClass + '">' + statusText + '</span></div>' +
+        '<div class="history-date">📅 ' + formatDate(item.meeting_date) + '</div>' +
+        (item.notes ? '<div class="history-notes">📝 ' + escapeHtml(item.notes) + '</div>' : '') +
+      '</div>';
+    });
+    historyList.innerHTML = html;
+  } catch (e) {
+    console.error('History error:', e);
+    historyList.innerHTML = '<div style="text-align:center;padding:20px;color:#e53e3e;">❌ Failed to load history: ' + e.message + '</div>';
+  }
 }
 
+// ============================================================
+//  EVENT LISTENERS
+// ============================================================
+
+// Add button
+addBtn.addEventListener('click', function(e) {
+  e.preventDefault();
+  addTeacher();
+});
+
+// Enter key support
+nameInput.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (this.value.trim()) {
+      emailInput.focus();
+    }
+  }
+});
+
+emailInput.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addBtn.click();
+  }
+});
+
+// Mark all present
+markAllBtn.addEventListener('click', function(e) {
+  e.preventDefault();
+  markAllPresent();
+});
+
+// Refresh
+refreshBtn.addEventListener('click', function(e) {
+  e.preventDefault();
+  loadTeachers(true);
+});
+
+// Modal close
+historyModalClose.addEventListener('click', function() {
+  historyModal.classList.remove('show');
+});
+
+// Close modal on outside click
+historyModal.addEventListener('click', function(e) {
+  if (e.target === this) {
+    historyModal.classList.remove('show');
+  }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && historyModal.classList.contains('show')) {
+    historyModal.classList.remove('show');
+  }
+});
+
+// ============================================================
+//  INIT
+// ============================================================
+function init() {
+  loadTeachers(false);
+  
+  // Auto-refresh every 30 seconds
+  setInterval(function() {
+    loadTeachers(false);
+  }, 30000);
+}
+
+// Start the app
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
