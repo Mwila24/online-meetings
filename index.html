@@ -451,7 +451,7 @@
                 <i class="fab fa-github"></i>
                 teacher-tracker
                 <span style="margin-left: 8px; background: #2d3748; padding: 2px 10px; border-radius: 30px; font-size: 11px;">
-                    v1.1
+                    v1.0
                 </span>
             </div>
         </div>
@@ -531,9 +531,6 @@
     <script>
         // ============================================================
         //  CONFIGURATION
-        //  Fill these in with a real project to enable Supabase (shared)
-        //  mode. Leave the placeholders to stay in local (this-device)
-        //  storage mode.
         // ============================================================
         const SUPABASE_URL = 'https://your-project.supabase.co';
         const SUPABASE_ANON_KEY = 'your-anon-key-here';
@@ -545,7 +542,6 @@
         let supabase = null;
         let isLocalMode = true;
         let isProcessing = false;
-        const STORAGE_KEY = 'teacherData';
 
         // ============================================================
         //  DOM ELEMENTS
@@ -628,45 +624,37 @@
         }
 
         // ============================================================
-        //  PERSISTENT STORAGE (artifact key-value store)
-        //  NOTE: localStorage/sessionStorage do not work inside
-        //  Claude.ai artifacts (sandboxed iframe blocks them) — that
-        //  was the original bug. window.storage is the supported
-        //  replacement and persists across sessions for this artifact.
+        //  LOCAL STORAGE
         // ============================================================
-        async function saveToLocal() {
+        function saveToLocal() {
             try {
-                const result = await window.storage.set(STORAGE_KEY, JSON.stringify(teachers), false);
-                if (!result) {
-                    console.warn('Storage set returned no result');
-                }
+                localStorage.setItem('teacherData', JSON.stringify(teachers));
             } catch (e) {
-                console.warn('Failed to save to storage:', e);
+                console.warn('Failed to save to localStorage:', e);
             }
         }
 
-        async function loadFromLocal() {
+        function loadFromLocal() {
             try {
-                const result = await window.storage.get(STORAGE_KEY, false);
-                if (result && result.value) {
-                    teachers = JSON.parse(result.value);
+                const data = localStorage.getItem('teacherData');
+                if (data) {
+                    teachers = JSON.parse(data);
                     return true;
                 }
             } catch (e) {
-                // Key not found yet, or storage unavailable — fall through
-                console.warn('Failed to load from storage (may just be first run):', e);
+                console.warn('Failed to load from localStorage:', e);
             }
             return false;
         }
 
-        async function seedSampleData() {
+        function seedSampleData() {
             teachers = [
                 { id: 1, name: 'Dr. Sarah Chen', email: 'sarah@edu.org', status: 'present' },
                 { id: 2, name: 'Prof. James Miller', email: 'james@edu.org', status: 'absent' },
                 { id: 3, name: 'Ms. Elena Rodriguez', email: 'elena@edu.org', status: 'present' },
                 { id: 4, name: 'Dr. Michael Thompson', email: 'michael@edu.org', status: 'absent' },
             ];
-            await saveToLocal();
+            saveToLocal();
         }
 
         // ============================================================
@@ -771,9 +759,8 @@
         // LOAD TEACHERS
         async function loadTeachers() {
             if (isLocalMode) {
-                const found = await loadFromLocal();
-                if (!found) {
-                    await seedSampleData();
+                if (!loadFromLocal()) {
+                    seedSampleData();
                 }
                 renderTable();
                 showToast('📚 Loaded from local storage', 'info');
@@ -791,7 +778,7 @@
                 if (data && data.length > 0) {
                     teachers = data;
                 } else {
-                    await seedSampleData();
+                    seedSampleData();
                     await syncToSupabase();
                 }
                 renderTable();
@@ -801,16 +788,15 @@
                 isLocalMode = true;
                 modeDisplay.textContent = 'Local';
                 modeDisplay.style.color = '#ed8936';
-                const found = await loadFromLocal();
-                if (!found) {
-                    await seedSampleData();
+                if (!loadFromLocal()) {
+                    seedSampleData();
                 }
                 renderTable();
                 showToast('⚠️ Using local storage', 'error');
             }
         }
 
-        // ADD TEACHER
+        // ADD TEACHER - FIXED VERSION
         async function addTeacher(name, email) {
             // Validation
             const trimmedName = name.trim();
@@ -855,7 +841,7 @@
                 if (isLocalMode) {
                     newTeacher.id = generateId();
                     teachers.push(newTeacher);
-                    await saveToLocal();
+                    saveToLocal();
                     renderTable();
                     clearInputs();
                     showToast(`✅ "${trimmedName}" added successfully`, 'success');
@@ -886,7 +872,7 @@
                     modeDisplay.style.color = '#ed8936';
                     newTeacher.id = generateId();
                     teachers.push(newTeacher);
-                    await saveToLocal();
+                    saveToLocal();
                     renderTable();
                     clearInputs();
                     showToast(`⚠️ Added to local storage`, 'error');
@@ -920,7 +906,7 @@
 
             if (isLocalMode) {
                 teacher.status = newStatus;
-                await saveToLocal();
+                saveToLocal();
                 renderTable();
                 showToast(`🔄 "${teacher.name}" is now ${newStatus}`, 'success');
                 return;
@@ -940,7 +926,7 @@
             } catch (err) {
                 console.error('Toggle error:', err);
                 teacher.status = newStatus;
-                await saveToLocal();
+                saveToLocal();
                 renderTable();
                 isLocalMode = true;
                 modeDisplay.textContent = 'Local';
@@ -966,7 +952,7 @@
 
             if (isLocalMode) {
                 teachers.splice(index, 1);
-                await saveToLocal();
+                saveToLocal();
                 renderTable();
                 showToast(`🗑️ "${teacher.name}" removed`, 'success');
                 return;
@@ -986,7 +972,7 @@
             } catch (err) {
                 console.error('Delete error:', err);
                 teachers.splice(index, 1);
-                await saveToLocal();
+                saveToLocal();
                 renderTable();
                 isLocalMode = true;
                 modeDisplay.textContent = 'Local';
@@ -1010,7 +996,7 @@
 
             if (isLocalMode) {
                 teachers.forEach(t => t.status = 'present');
-                await saveToLocal();
+                saveToLocal();
                 renderTable();
                 showToast(`✅ ${teachers.length} teachers marked as present`, 'success');
                 return;
@@ -1033,7 +1019,7 @@
             } catch (err) {
                 console.error('Mark all error:', err);
                 teachers.forEach(t => t.status = 'present');
-                await saveToLocal();
+                saveToLocal();
                 renderTable();
                 isLocalMode = true;
                 modeDisplay.textContent = 'Local';
@@ -1070,11 +1056,13 @@
         }
 
         // ============================================================
-        //  EVENT LISTENERS
+        //  EVENT LISTENERS - FIXED
         // ============================================================
 
+        // Add button - using onclick directly for reliability
         addBtn.onclick = function(e) {
             e.preventDefault();
+            console.log('Add button clicked!');
             const name = nameInput.value;
             const email = emailInput.value;
             addTeacher(name, email);
@@ -1111,13 +1099,20 @@
 
         // ============================================================
         //  INIT
-        // ============================================================ 
+        // ============================================================
         function init() {
+            console.log('🚀 Initializing Teacher Tracker...');
+            
             // Initialize Supabase
             initSupabase();
 
             // Load teachers
             loadTeachers();
+
+            console.log('📚 Teacher Tracker initialized');
+            console.log('Mode:', isLocalMode ? 'Local Storage' : 'Supabase');
+            console.log('Teachers:', teachers.length);
+            console.log('Add button element:', addBtn);
 
             // Auto-refresh every 30 seconds if using Supabase
             setInterval(() => {
