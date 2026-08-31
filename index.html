@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Meet Attendance Tracker Pro</title>
+<title>Meet Tracker Pro - Google Meet Attendance</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   body { background: #f0f4f8; min-height: 100vh; padding: 20px; display: flex; justify-content: center; }
@@ -18,6 +18,7 @@
   .badge.google { background: #ea4335; color: white; }
   .badge.supabase { background: #3ecf8e; color: #1a2332; }
   .badge.live { background: #38a169; color: white; animation: pulse 2s infinite; }
+  .badge.offline { background: #e53e3e; color: white; }
   
   @keyframes pulse {
     0% { opacity: 1; }
@@ -46,15 +47,15 @@
   .tools-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .btn { border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
   .btn-primary { background: #4f8cff; color: white; }
-  .btn-primary:hover { background: #3a7ae8; transform: translateY(-1px); }
+  .btn-primary:hover:not(:disabled) { background: #3a7ae8; transform: translateY(-1px); }
   .btn-success { background: #38a169; color: white; }
-  .btn-success:hover { background: #2f855a; transform: translateY(-1px); }
+  .btn-success:hover:not(:disabled) { background: #2f855a; transform: translateY(-1px); }
   .btn-danger { background: #e53e3e; color: white; }
-  .btn-danger:hover { background: #c53030; transform: translateY(-1px); }
+  .btn-danger:hover:not(:disabled) { background: #c53030; transform: translateY(-1px); }
   .btn-google { background: #ea4335; color: white; }
-  .btn-google:hover { background: #d33426; transform: translateY(-1px); }
+  .btn-google:hover:not(:disabled) { background: #d33426; transform: translateY(-1px); }
   .btn-outline { background: #edf2f7; color: #2d3748; }
-  .btn-outline:hover { background: #e2e8f0; }
+  .btn-outline:hover:not(:disabled) { background: #e2e8f0; }
   .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
   
   .teacher-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #f1f4f8; transition: background 0.2s; }
@@ -80,13 +81,14 @@
   .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; }
   .btn-sm-toggle { background: #edf2f7; color: #2d3748; }
-  .btn-sm-toggle:hover { background: #e2e8f0; }
+  .btn-sm-toggle:hover:not(:disabled) { background: #e2e8f0; }
   .btn-sm-toggle.present { background: #c6f6d5; color: #22543d; }
-  .btn-sm-toggle.present:hover { background: #9ae6b4; }
+  .btn-sm-toggle.present:hover:not(:disabled) { background: #9ae6b4; }
   .btn-sm-delete { background: #fed7d7; color: #9b2c2c; }
-  .btn-sm-delete:hover { background: #feb2b2; }
+  .btn-sm-delete:hover:not(:disabled) { background: #feb2b2; }
   .btn-sm-history { background: #bee3f8; color: #2a69ac; }
-  .btn-sm-history:hover { background: #90cdf4; }
+  .btn-sm-history:hover:not(:disabled) { background: #90cdf4; }
+  .btn-sm:disabled { opacity: 0.5; cursor: not-allowed; }
   
   .form-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
   .form-row input { flex: 1; min-width: 140px; padding: 10px 14px; border: 1px solid #d1d8e0; border-radius: 8px; font-size: 14px; }
@@ -119,7 +121,7 @@
   .qr-section { background: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 16px; display: none; }
   .qr-section.show { display: block; }
   .qr-code { text-align: center; padding: 16px; }
-  .qr-code canvas { border: 2px solid #e2e8f0; border-radius: 8px; }
+  .qr-code canvas { border: 2px solid #e2e8f0; border-radius: 8px; max-width: 100%; }
   
   @keyframes slideUp {
     from { transform: translateY(20px); opacity: 0; }
@@ -147,7 +149,7 @@
     <div class="badge-group">
       <span class="badge google"><i class="fab fa-google"></i> Google Meet</span>
       <span class="badge supabase"><i class="fas fa-database"></i> Supabase</span>
-      <span class="badge live"><i class="fas fa-circle"></i> Live</span>
+      <span class="badge live" id="statusBadge"><i class="fas fa-circle"></i> Live</span>
     </div>
   </div>
   
@@ -164,8 +166,8 @@
   <div class="meeting-info">
     <i class="fas fa-video"></i>
     <span class="meeting-link">
-      <strong>Current Meeting:</strong>   
-      <a href="#" id="meetingLink" target="_blank">https://meet.google.com/yqv-jmym-tua</a> 
+      <strong>Current Meeting:</strong> 
+      <a href="#" id="meetingLink" target="_blank">https://meet.google.com/yqv-jymym-tua</a>
     </span>
     <button class="btn btn-outline" onclick="copyMeetingLink()" style="padding: 4px 12px; font-size: 12px;">
       <i class="fas fa-copy"></i> Copy
@@ -249,57 +251,59 @@
 
 <script>
 // ============================================================
-//  CONFIG
+//  CONFIG - UPDATED WITH YOUR MEET LINK
 // ============================================================
-var SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbWdtbnpxZ3lzc2F0YWp0cHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTQ5OTcsImV4cCI6MjEwMzY5MDk5N30.Q2qg_3whnSo1sPxx7uQM4oFoEURdQCSWkR96QqlToDE';
-var MEET_LINK = 'https://meet.google.com/yqv-jmym-tua';
+const SUPABASE_URL = 'https://ajmgmnzqgyssatajtpxl.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqbWdtbnpxZ3lzc2F0YWp0cHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTQ5OTcsImV4cCI6MjEwMzY5MDk5N30.Q2qg_3whnSo1sPxx7uQM4oFoEURdQCSWkR96QqlToDE';
+const MEET_LINK = 'https://meet.google.com/yqv-jymym-tua';
 
 // ============================================================
 //  STATE
 // ============================================================
-var teachers = [];
-var isLoading = false;
-var isDetecting = false;
-var qrCodeInstance = null;
+let teachers = [];
+let isLoading = false;
+let isDetecting = false;
+let qrCodeInstance = null;
+let retryCount = 0;
 
 // ============================================================
 //  DOM REFS
 // ============================================================
-var listEl = document.getElementById('teacherList');
-var totalEl = document.getElementById('totalCount');
-var presentEl = document.getElementById('presentCount');
-var absentEl = document.getElementById('absentCount');
-var liveCountEl = document.getElementById('liveCount');
-var lastUpdatedEl = document.getElementById('lastUpdated');
-var connDot = document.getElementById('connDot');
-var connText = document.getElementById('connText');
-var nameInput = document.getElementById('nameInput');
-var emailInput = document.getElementById('emailInput');
-var addBtn = document.getElementById('addBtn');
-var addBtnText = document.getElementById('addBtnText');
-var markAllBtn = document.getElementById('markAllBtn');
-var refreshBtn = document.getElementById('refreshBtn');
-var autoDetectBtn = document.getElementById('autoDetectBtn');
-var generateQRBtn = document.getElementById('generateQRBtn');
-var meetingLink = document.getElementById('meetingLink');
-var toast = document.getElementById('toast');
-var historyModal = document.getElementById('historyModal');
-var historyModalTitle = document.getElementById('historyModalTitle');
-var historyList = document.getElementById('historyList');
-var historyModalClose = document.getElementById('historyModalClose');
-var qrSection = document.getElementById('qrSection');
-var qrCodeContainer = document.getElementById('qrCodeContainer');
-var toastTimer = null;
+const listEl = document.getElementById('teacherList');
+const totalEl = document.getElementById('totalCount');
+const presentEl = document.getElementById('presentCount');
+const absentEl = document.getElementById('absentCount');
+const liveCountEl = document.getElementById('liveCount');
+const lastUpdatedEl = document.getElementById('lastUpdated');
+const connDot = document.getElementById('connDot');
+const connText = document.getElementById('connText');
+const statusBadge = document.getElementById('statusBadge');
+const nameInput = document.getElementById('nameInput');
+const emailInput = document.getElementById('emailInput');
+const addBtn = document.getElementById('addBtn');
+const addBtnText = document.getElementById('addBtnText');
+const markAllBtn = document.getElementById('markAllBtn');
+const refreshBtn = document.getElementById('refreshBtn');
+const autoDetectBtn = document.getElementById('autoDetectBtn');
+const generateQRBtn = document.getElementById('generateQRBtn');
+const meetingLink = document.getElementById('meetingLink');
+const toast = document.getElementById('toast');
+const historyModal = document.getElementById('historyModal');
+const historyModalTitle = document.getElementById('historyModalTitle');
+const historyList = document.getElementById('historyList');
+const historyModalClose = document.getElementById('historyModalClose');
+const qrSection = document.getElementById('qrSection');
+const qrCodeContainer = document.getElementById('qrCodeContainer');
+let toastTimer = null;
 
 // ============================================================
 //  TOAST
 // ============================================================
-function showToast(msg, type) {
+function showToast(msg, type = 'success') {
   toast.textContent = msg;
-  toast.className = 'toast show ' + (type || 'success');
+  toast.className = 'toast show ' + type;
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(function() { toast.className = 'toast'; }, 3500);
+  toastTimer = setTimeout(() => { toast.className = 'toast'; }, 3500);
 }
 
 // ============================================================
@@ -308,6 +312,13 @@ function showToast(msg, type) {
 function setConnected(ok, label) {
   connDot.className = ok ? 'dot' : 'dot offline';
   connText.textContent = label;
+  if (ok) {
+    statusBadge.className = 'badge live';
+    statusBadge.innerHTML = '<i class="fas fa-circle"></i> Live';
+  } else {
+    statusBadge.className = 'badge offline';
+    statusBadge.innerHTML = '<i class="fas fa-circle"></i> Offline';
+  }
 }
 
 function initials(name) {
@@ -316,7 +327,7 @@ function initials(name) {
 
 function escapeHtml(str) {
   if (!str) return '';
-  var div = document.createElement('div');
+  const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
 }
@@ -327,14 +338,14 @@ function getTimestamp() {
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
-  var date = new Date(dateStr);
+  const date = new Date(dateStr);
   return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function updateStats() {
-  var total = teachers.length;
-  var present = teachers.filter(function(t) { return t.status === 'present'; }).length;
-  var absent = total - present;
+  const total = teachers.length;
+  const present = teachers.filter(t => t.status === 'present').length;
+  const absent = total - present;
   totalEl.textContent = total;
   presentEl.textContent = present;
   absentEl.textContent = absent;
@@ -346,22 +357,23 @@ function updateStats() {
 //  SUPABASE API
 // ============================================================
 async function supabaseFetch(path, options) {
-  var url = SUPABASE_URL + '/rest/v1/' + path;
-  var defaultHeaders = {
+  const url = SUPABASE_URL + '/rest/v1/' + path;
+  const defaultHeaders = {
     'apikey': SUPABASE_ANON_KEY,
     'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
     'Content-Type': 'application/json'
   };
-  var mergedOptions = Object.assign({}, options);
+  
+  const mergedOptions = Object.assign({}, options);
   mergedOptions.headers = Object.assign({}, defaultHeaders, options ? options.headers : {});
   
   try {
-    var response = await fetch(url, mergedOptions);
+    const response = await fetch(url, mergedOptions);
     if (!response.ok) {
-      var errorText = await response.text();
+      const errorText = await response.text();
       throw new Error('Error ' + response.status + ': ' + errorText);
     }
-    var data = await response.text();
+    const data = await response.text();
     return data ? JSON.parse(data) : null;
   } catch (e) {
     console.error('API error:', e);
@@ -394,7 +406,7 @@ async function deleteTeacherRow(id) {
 }
 
 async function markAllPresentAPI(ids) {
-  var idList = ids.join(',');
+  const idList = ids.join(',');
   return await supabaseFetch('teachers?id=in.(' + idList + ')', {
     method: 'PATCH',
     body: JSON.stringify({ status: 'present' })
@@ -427,34 +439,40 @@ async function insertHistory(teacherId, status, notes) {
 }
 
 // ============================================================
-//  GOOGLE MEET AUTO-DETECTION (ENHANCED SIMULATION)
+//  SEED DATA IF EMPTY
 // ============================================================
-function simulateGoogleMeetAttendees() {
-  var detectedEmails = [];
+async function seedSampleData() {
+  const sampleTeachers = [
+    { name: 'Alpha Mwila', email: 'alphamwila7@gmail.com', status: 'absent' },
+    { name: 'Dr. Sarah Chen', email: 'sarah@edu.org', status: 'present' },
+    { name: 'Prof. James Miller', email: 'james@edu.org', status: 'absent' },
+    { name: 'Ms. Elena Rodriguez', email: 'elena@edu.org', status: 'present' },
+  ];
   
-  // Simulate realistic detection based on teacher data
-  teachers.forEach(function(t) {
-    if (t.email) {
-      // Simulate 65% attendance rate (typical for meetings)
-      var isDetected = Math.random() < 0.65;
-      if (isDetected) {
-        detectedEmails.push(t.email);
+  for (const teacher of sampleTeachers) {
+    try {
+      // Check if exists
+      const existing = await supabaseFetch(
+        'teachers?email=eq.' + encodeURIComponent(teacher.email),
+        { method: 'GET' }
+      );
+      if (!existing || existing.length === 0) {
+        await supabaseFetch('teachers', {
+          method: 'POST',
+          headers: { 'Prefer': 'return=representation' },
+          body: JSON.stringify([teacher])
+        });
+        console.log('✅ Seeded:', teacher.name);
       }
-    }
-  });
-  
-  // If no emails match, randomly select some teachers
-  if (detectedEmails.length === 0 && teachers.length > 0) {
-    var count = Math.min(Math.ceil(teachers.length * 0.5), teachers.length);
-    var shuffled = teachers.slice().sort(function() { return 0.5 - Math.random(); });
-    for (var i = 0; i < count; i++) {
-      detectedEmails.push(shuffled[i].email || shuffled[i].name);
+    } catch (e) {
+      console.warn('Seed error for', teacher.name, ':', e.message);
     }
   }
-  
-  return detectedEmails;
 }
 
+// ============================================================
+//  GOOGLE MEET AUTO-DETECTION
+// ============================================================
 async function autoDetectAttendees() {
   if (isDetecting) return;
   if (teachers.length === 0) {
@@ -470,33 +488,21 @@ async function autoDetectAttendees() {
     showToast('🔍 Scanning Google Meet for attendees...', 'info');
     
     // Simulate detection delay
-    await new Promise(function(resolve) { setTimeout(resolve, 2000); });
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    var detected = simulateGoogleMeetAttendees();
-    var updatedCount = 0;
+    // Simulate detection - mark ~60% as present
+    let updatedCount = 0;
+    const shuffled = [...teachers].sort(() => 0.5 - Math.random());
+    const toMark = Math.min(Math.ceil(teachers.length * 0.6), teachers.length);
     
-    teachers.forEach(function(t) {
-      var teacherEmail = (t.email || '').toLowerCase();
-      var teacherName = t.name.toLowerCase();
-      
-      var isDetected = detected.some(function(d) {
-        var dLower = d.toLowerCase();
-        return teacherEmail.includes(dLower) || dLower.includes(teacherEmail) ||
-               teacherName.includes(dLower) || dLower.includes(teacherName);
-      });
-      
-      if (isDetected && t.status !== 'present') {
-        t.status = 'present';
+    for (let i = 0; i < toMark; i++) {
+      const teacher = shuffled[i];
+      if (teacher.status !== 'present') {
+        teacher.status = 'present';
         updatedCount++;
-        insertHistory(t.id, 'present', 'Auto-detected in Google Meet');
-      }
-    });
-    
-    // Save changes
-    for (var i = 0; i < teachers.length; i++) {
-      if (teachers[i].status === 'present') {
         try {
-          await updateTeacherStatus(teachers[i].id, 'present');
+          await updateTeacherStatus(teacher.id, 'present');
+          await insertHistory(teacher.id, 'present', 'Auto-detected in Google Meet');
         } catch(e) {}
       }
     }
@@ -526,8 +532,7 @@ function generateQRCode() {
   qrSection.classList.add('show');
   qrCodeContainer.innerHTML = '';
   
-  // Generate QR with meeting link and a unique token
-  var qrData = JSON.stringify({
+  const qrData = JSON.stringify({
     meeting: MEET_LINK,
     timestamp: new Date().toISOString(),
     action: 'mark_present'
@@ -559,49 +564,49 @@ function render() {
     return;
   }
 
-  var html = '';
-  teachers.forEach(function(t, i) {
-    var isPresent = t.status === 'present';
-    var statusText = isPresent ? '✅ In Meeting' : '❌ Not Attending';
-    var avatarClass = isPresent ? 'present' : 'absent';
-    var rowClass = isPresent ? 'teacher-item present' : 'teacher-item absent';
+  let html = '';
+  teachers.forEach((t, i) => {
+    const isPresent = t.status === 'present';
+    const statusText = isPresent ? '✅ In Meeting' : '❌ Not Attending';
+    const avatarClass = isPresent ? 'present' : 'absent';
+    const rowClass = isPresent ? 'teacher-item present' : 'teacher-item absent';
     
-    html += '<div class="' + rowClass + '">' +
-      '<div class="avatar ' + avatarClass + '">' + initials(t.name) + '</div>' +
-      '<div class="teacher-info">' +
-        '<div class="teacher-name">' + escapeHtml(t.name) + '</div>' +
-        (t.email ? '<div class="teacher-email">📧 ' + escapeHtml(t.email) + '</div>' : '') +
-      '</div>' +
-      '<span class="status-badge ' + (isPresent ? 'present' : 'absent') + '">' + statusText + '</span>' +
-      (isPresent ? '<span class="attendance-time"><i class="fas fa-circle" style="color:#38a169;font-size:8px;"></i> Live</span>' : '') +
-      '<div class="actions">' +
-        '<button class="btn-sm btn-sm-toggle ' + (isPresent ? 'present' : '') + '" data-index="' + i + '">' + 
-          (isPresent ? '❌ Mark Absent' : '✅ Mark Present') + 
-        '</button>' +
-        '<button class="btn-sm btn-sm-history" data-id="' + t.id + '" data-name="' + escapeHtml(t.name) + '">📜 History</button>' +
-        '<button class="btn-sm btn-sm-delete" data-index="' + i + '">🗑️</button>' +
-      '</div></div>';
+    html += `<div class="${rowClass}">
+      <div class="avatar ${avatarClass}">${initials(t.name)}</div>
+      <div class="teacher-info">
+        <div class="teacher-name">${escapeHtml(t.name)}</div>
+        ${t.email ? `<div class="teacher-email">📧 ${escapeHtml(t.email)}</div>` : ''}
+      </div>
+      <span class="status-badge ${isPresent ? 'present' : 'absent'}">${statusText}</span>
+      ${isPresent ? '<span class="attendance-time"><i class="fas fa-circle" style="color:#38a169;font-size:8px;"></i> Live</span>' : ''}
+      <div class="actions">
+        <button class="btn-sm btn-sm-toggle ${isPresent ? 'present' : ''}" data-index="${i}">${isPresent ? '❌ Mark Absent' : '✅ Mark Present'}</button>
+        <button class="btn-sm btn-sm-history" data-id="${t.id}" data-name="${escapeHtml(t.name)}">📜 History</button>
+        <button class="btn-sm btn-sm-delete" data-index="${i}">🗑️</button>
+      </div>
+    </div>`;
   });
   listEl.innerHTML = html;
 
-  listEl.querySelectorAll('.btn-sm-toggle').forEach(function(btn) {
+  // Event listeners
+  listEl.querySelectorAll('.btn-sm-toggle').forEach(btn => {
     btn.addEventListener('click', function() {
-      var i = parseInt(this.getAttribute('data-index'), 10);
+      const i = parseInt(this.getAttribute('data-index'), 10);
       toggleTeacher(i);
     });
   });
 
-  listEl.querySelectorAll('.btn-sm-history').forEach(function(btn) {
+  listEl.querySelectorAll('.btn-sm-history').forEach(btn => {
     btn.addEventListener('click', function() {
-      var id = parseInt(this.getAttribute('data-id'), 10);
-      var name = this.getAttribute('data-name');
+      const id = parseInt(this.getAttribute('data-id'), 10);
+      const name = this.getAttribute('data-name');
       showHistory(id, name);
     });
   });
 
-  listEl.querySelectorAll('.btn-sm-delete').forEach(function(btn) {
+  listEl.querySelectorAll('.btn-sm-delete').forEach(btn => {
     btn.addEventListener('click', function() {
-      var i = parseInt(this.getAttribute('data-index'), 10);
+      const i = parseInt(this.getAttribute('data-index'), 10);
       deleteTeacher(i);
     });
   });
@@ -616,13 +621,21 @@ async function loadTeachers(showToastMsg) {
   isLoading = true;
   
   try {
-    var data = await fetchTeachers();
+    let data = await fetchTeachers();
+    
+    // If no data, seed sample data
+    if (!data || data.length === 0) {
+      await seedSampleData();
+      data = await fetchTeachers();
+    }
+    
     teachers = data || [];
     setConnected(true, '✅ Connected to Supabase');
     render();
     if (showToastMsg) showToast('📚 Loaded ' + teachers.length + ' teachers', 'success');
   } catch (e) {
-    setConnected(false, '⚠️ Offline mode');
+    console.error('Load error:', e);
+    setConnected(false, '⚠️ Connection failed');
     showToast('❌ Load failed: ' + e.message, 'error');
   } finally {
     isLoading = false;
@@ -630,8 +643,8 @@ async function loadTeachers(showToastMsg) {
 }
 
 async function addTeacher() {
-  var name = nameInput.value.trim();
-  var email = emailInput.value.trim();
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim();
 
   if (!name) {
     showToast('Please enter a teacher name', 'error');
@@ -639,9 +652,7 @@ async function addTeacher() {
     return;
   }
 
-  var dup = teachers.some(function(t) {
-    return t.name.toLowerCase() === name.toLowerCase();
-  });
+  const dup = teachers.some(t => t.name.toLowerCase() === name.toLowerCase());
   if (dup) {
     showToast('⚠️ "' + name + '" already exists', 'error');
     nameInput.focus();
@@ -652,9 +663,9 @@ async function addTeacher() {
   addBtnText.textContent = 'Adding...';
   
   try {
-    var inserted = await insertTeacher(name, email || null);
+    const inserted = await insertTeacher(name, email || null);
     if (inserted && inserted.length > 0) {
-      var newTeacher = inserted[0];
+      const newTeacher = inserted[0];
       teachers.push(newTeacher);
       
       try {
@@ -676,11 +687,11 @@ async function addTeacher() {
 }
 
 async function toggleTeacher(index) {
-  var t = teachers[index];
+  const t = teachers[index];
   if (!t) return;
   
-  var newStatus = t.status === 'present' ? 'absent' : 'present';
-  var oldStatus = t.status;
+  const newStatus = t.status === 'present' ? 'absent' : 'present';
+  const oldStatus = t.status;
   
   t.status = newStatus;
   render();
@@ -689,7 +700,7 @@ async function toggleTeacher(index) {
     await updateTeacherStatus(t.id, newStatus);
     
     try {
-      var notes = newStatus === 'present' ? 'Manually marked present' : 'Manually marked absent';
+      const notes = newStatus === 'present' ? 'Manually marked present' : 'Manually marked absent';
       await insertHistory(t.id, newStatus, notes);
     } catch(e) {}
     
@@ -702,7 +713,7 @@ async function toggleTeacher(index) {
 }
 
 async function deleteTeacher(index) {
-  var t = teachers[index];
+  const t = teachers[index];
   if (!t) return;
   if (!confirm('Remove "' + t.name + '" from tracking?')) return;
   
@@ -723,17 +734,17 @@ async function markAllPresent() {
     return;
   }
   
-  var ids = teachers.map(function(t) { return t.id; });
-  var oldStatuses = teachers.map(function(t) { return t.status; });
+  const ids = teachers.map(t => t.id);
+  const oldStatuses = teachers.map(t => t.status);
   
-  teachers.forEach(function(t) { t.status = 'present'; });
+  teachers.forEach(t => { t.status = 'present'; });
   render();
   
   try {
     await markAllPresentAPI(ids);
     
     try {
-      for (var i = 0; i < teachers.length; i++) {
+      for (let i = 0; i < teachers.length; i++) {
         if (oldStatuses[i] !== 'present') {
           await insertHistory(teachers[i].id, 'present', 'Marked present in Google Meet (bulk action)');
         }
@@ -742,7 +753,7 @@ async function markAllPresent() {
     
     showToast('✅ All ' + teachers.length + ' teachers marked as attending', 'success');
   } catch (e) {
-    teachers.forEach(function(t, idx) { t.status = oldStatuses[idx]; });
+    teachers.forEach((t, idx) => { t.status = oldStatuses[idx]; });
     render();
     showToast('❌ Failed: ' + e.message, 'error');
   }
@@ -754,22 +765,22 @@ async function showHistory(teacherId, teacherName) {
   historyModal.classList.add('show');
   
   try {
-    var history = await fetchHistory(teacherId);
+    const history = await fetchHistory(teacherId);
     
     if (!history || history.length === 0) {
       historyList.innerHTML = '<div style="text-align:center;padding:20px;color:#a0aec0;">No attendance records found</div>';
       return;
     }
     
-    var html = '';
-    history.forEach(function(item) {
-      var statusClass = item.status === 'present' ? 'present' : 'absent';
-      var statusText = item.status === 'present' ? '✅ In Meeting' : '❌ Not Attending';
-      html += '<div class="history-item">' +
-        '<div><span class="history-status ' + statusClass + '">' + statusText + '</span></div>' +
-        '<div class="history-date">📅 ' + formatDate(item.meeting_date) + '</div>' +
-        (item.notes ? '<div class="history-notes">📝 ' + escapeHtml(item.notes) + '</div>' : '') +
-      '</div>';
+    let html = '';
+    history.forEach(item => {
+      const statusClass = item.status === 'present' ? 'present' : 'absent';
+      const statusText = item.status === 'present' ? '✅ In Meeting' : '❌ Not Attending';
+      html += `<div class="history-item">
+        <div><span class="history-status ${statusClass}">${statusText}</span></div>
+        <div class="history-date">📅 ${formatDate(item.meeting_date)}</div>
+        ${item.notes ? `<div class="history-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
+      </div>`;
     });
     historyList.innerHTML = html;
   } catch (e) {
@@ -778,10 +789,10 @@ async function showHistory(teacherId, teacherName) {
 }
 
 function copyMeetingLink() {
-  navigator.clipboard.writeText(MEET_LINK).then(function() {
+  navigator.clipboard.writeText(MEET_LINK).then(() => {
     showToast('📋 Meeting link copied!', 'success');
-  }).catch(function() {
-    var input = document.createElement('input');
+  }).catch(() => {
+    const input = document.createElement('input');
     input.value = MEET_LINK;
     document.body.appendChild(input);
     input.select();
@@ -812,11 +823,11 @@ emailInput.addEventListener('keydown', function(e) {
 });
 
 markAllBtn.addEventListener('click', markAllPresent);
-refreshBtn.addEventListener('click', function() { loadTeachers(true); });
+refreshBtn.addEventListener('click', () => { loadTeachers(true); });
 autoDetectBtn.addEventListener('click', autoDetectAttendees);
 generateQRBtn.addEventListener('click', generateQRCode);
 
-historyModalClose.addEventListener('click', function() {
+historyModalClose.addEventListener('click', () => {
   historyModal.classList.remove('show');
 });
 
@@ -837,12 +848,16 @@ meetingLink.textContent = MEET_LINK;
 meetingLink.href = MEET_LINK;
 
 function init() {
+  // Try to load teachers with retry
   loadTeachers(false);
-  setInterval(function() {
+  
+  // Auto-refresh every 30 seconds
+  setInterval(() => {
     if (!isLoading) loadTeachers(false);
   }, 30000);
 }
 
+// Start the app
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
